@@ -1,4 +1,4 @@
-# Quantifying impacts of defoliation by gypsy moth caterpillars on stream flow in Southern New England
+# Impacts of defoliation by gypsy moth caterpillars on streamflow in Southern New England
 
 This code is associated with the publication: Smith-Tripp, S., A. Griffith, V. Pasquarella, J.H. Matthes. TBD. Impacts of a regional multi-year insect defoliation on seasonal water yield and instantaneous streamflow characteristics.
 
