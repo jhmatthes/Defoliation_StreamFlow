@@ -7,6 +7,9 @@ This analysis assesses the connection between defoliation in southern New Englan
 The code is organized by: 
 1. Extract defoliation values 
 2. Download 15-minute streamflow data for 1995-2017 from USGS stream gages in the Southern New England region. 
+3. Download daymet precipitation data for 1995-2017 co-located with the USGS stream gages.
+4. Process the streamflow and precipitation data into seasonal sums.
+5. Calculate streamflow and precip anomalies at each stream gage for the 2015-2017 time period compared to a 1995-2014 mean baseline period.
+6. Calulate stream flow duration curves at each stream gage for the 2015-2017 period and compare to a 1995-2014 baseline flow duration curve.
 
-
-This code analyzes the connection between defoliation from a Landsat data produce and watershed-scale water yield, yield:precipitation, and instantaneous streamflow characteristics. It downloads 15-minute data from USGS streamflow gages in southern New England 1995-2017 and precipitation data from Daymet at the same gage locations.
+This code has an associated Docker build to facilitate reproducibility. 
