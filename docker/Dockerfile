@@ -1,4 +1,4 @@
-FROM rocker/tidyverse:3.6.1 
+FROM rocker/geospatial:3.6.2 
 
 RUN wget http://cran.r-project.org/src/contrib/dataRetrieval_2.7.5.tar.gz && \
     R CMD INSTALL dataRetrieval_2.7.5.tar.gz && \
