@@ -1,9 +1,15 @@
 FROM rocker/tidyverse:3.6.1 
 
-RUN install2r.sh \
-    dataRetrieval \
-    daymetr \
-    cowplot \
-    lme4 \
-    lmeTest \
-    MuMIn
+RUN wget http://cran.r-project.org/src/contrib/dataRetrieval_2.7.5.tar.gz \
+    R CMD INSTALL dataRetrieval_2.7.5.tar.gz \
+    wget http://cran.r-project.org/src/contrib/daymetr_1.4.tar.gz \
+    R CMD INSTALL daymetr_1.4.tar.gz \
+    wget http://cran.r-project.org/src/contrib/cowplot_1.0.0.tar.gz \
+    R CMD INSTALL cowplot_1.0.0.tar.gz \
+    wget http://cran.r-project.org/src/lme4_1.1-21.tar.gz \
+    R CMD INSTALL lme4_1.1-21.tar.gz \
+    wget http://cran.r-project.org/src/lmerTest_3.1-1.tar.gz \
+    R CMD INSTALL lmerTest_3.1-1.tar.gz \
+    wget http://cran.r-project.org/src/lmerTest_3.1-1.tar.gz \
+    R CMD INSTALL lmerTest_3.1-1.tar.gz
+    
