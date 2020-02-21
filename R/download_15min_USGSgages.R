@@ -21,7 +21,11 @@ if(dir.exists("data/Gage_Data/")){
 
 # Download data 
 for(g in 1:nrow(gages_dischargeDuration)){
-   years <- gages_dischargeDuration$yr_start[g]:gages_dischargeDuration$yr_end[g]
+  
+  # Keep track of progress
+  print(paste("Downloading gage",g,"of",nrow(gages_dischargeDuration),":",gages_dischargeDuration$STAID[g]))
+  
+  years <- gages_dischargeDuration$yr_start[g]:gages_dischargeDuration$yr_end[g]
 
    for(y in 1:length(years)){
 
@@ -38,7 +42,7 @@ for(g in 1:nrow(gages_dischargeDuration)){
        }
      }
    }
-   write.csv(site_yrs, paste0("Gage_Data/discharge_15min/",
+   write.csv(site_yrs, paste0("data/Gage_Data/",
                               gages_dischargeDuration$STAID[g],"_15min.csv"),
-             header=TRUE, row.names = FALSE)
+             row.names = FALSE)
 }

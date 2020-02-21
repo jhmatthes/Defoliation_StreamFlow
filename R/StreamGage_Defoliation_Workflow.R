@@ -18,29 +18,28 @@ refgages_defol <- sf::read_sf("Gage_Data/Shapefiles/RI_ws_refer_27Feb19.shp")
 sf::st_geometry(refgages_defol) <- NULL
 ref_STAID <- unique(refgages_defol$STAID)
 
-allgages_area <- sf::read_sf("Gage_Data/Shapefiles/Gages_FrstMask_DefolLt6_4Dec2019.shp") 
-sf::st_geometry(allgages_area) <- NULL 
-allgages_area <- select(allgages_area, STAID, DRAIN_SQKM)
+#allgages_area <- sf::read_sf("Gage_Data/Shapefiles/Gages_FrstMask_DefolLt6_4Dec2019.shp") 
+#sf::st_geometry(allgages_area) <- NULL 
+#allgages_area <- select(allgages_area, STAID, DRAIN_SQKM)
 
-allgages_defol <- sf::read_sf("Gage_Data/Shapefiles/Gages_ForMask_16Dec19.shp")
-sf::st_geometry(allgages_defol) <- NULL 
-allgages_defol <- dplyr::select(allgages_defol, STAID, lat, lon, AreaSqKm, Name, States,
-                                HUC12, HUType, HUMod, ToHUC,
-                                X_15count, X_15mean, X_16count, X_16mean,
-                                X_17count, X_17mean, X_18count, X_18mean) %>%
-  dplyr::mutate(STAID = stringr::str_pad(STAID, width = 8, side = "left", pad = "0")) %>%
-  left_join(allgages_area)
+#allgages_defol <- sf::read_sf("Gage_Data/Shapefiles/Gages_ForMask_16Dec19.shp")
+#sf::st_geometry(allgages_defol) <- NULL 
+#allgages_defol <- dplyr::select(allgages_defol, STAID, lat, lon, AreaSqKm, Name, States,
+#                                HUC12, HUType, HUMod, ToHUC,
+#                                X_15count, X_15mean, X_16count, X_16mean,
+#                                X_17count, X_17mean, X_18count, X_18mean) %>%
+#  dplyr::mutate(STAID = stringr::str_pad(STAID, width = 8, side = "left", pad = "0")) %>%
+#  left_join(allgages_area)
 
 # Only keep defoliation columns with mean 
-stats_cols <- c(grep("mean", names(allgages_defol)))
-allgages_defol <- allgages_defol[,c(1:4,19,stats_cols)]
-names(allgages_defol)[6:ncol(allgages_defol)] <- paste0("20",as.character(substr(names(allgages_defol)[6:ncol(allgages_defol)], 3 , 8)))
+#stats_cols <- c(grep("mean", names(allgages_defol)))
+#allgages_defol <- allgages_defol[,c(1:4,19,stats_cols)]
+#names(allgages_defol)[6:ncol(allgages_defol)] <- paste0("20",as.character(substr(names(allgages_defol)[6:ncol(allgages_defol)], 3 , 8)))
 
-# Gather and clean the columns into year, mean, stdev with rows by gage station
-allgages_defol <- tidyr::gather(allgages_defol, key = "year", value = "defol_mean", `2015mean`:`2018mean`) 
-allgages_defol$year <- as.numeric(substr(allgages_defol$year,1,4))
-allgages_defol <- mutate(allgages_defol, ref_gage = STAID %in% refgages_defol$STAID)
-#STAID_all <- unique(allgages_defol$STAID)
+## Gather and clean the columns into year, mean, stdev with rows by gage station
+#allgages_defol <- tidyr::gather(allgages_defol, key = "year", value = "defol_mean", `2015mean`:`2018mean`) 
+#allgages_defol$year <- as.numeric(substr(allgages_defol$year,1,4))
+#allgages_defol <- mutate(allgages_defol, ref_gage = STAID %in% refgages_defol$STAID)
 
 allgages_defol <- read_csv("allgages_defol.csv")
 
