@@ -10,8 +10,8 @@ library(lmerTest)
 library(MuMIn)
 
 # Load the flow duration curve functions
-source("Functions/FDC_calc.R") # Calculate FDC curves
-source("Functions/FDC_percentiles.R") # Find percentiles on FDC curves
+source("R/Functions/FDC_calc.R") # Calculate FDC curves
+source("R/Functions/FDC_percentiles.R") # Find percentiles on FDC curves
 
 # Load Landsat data product defoliation values at stream gage watersheds 
 refgages_defol <- sf::read_sf("Gage_Data/Shapefiles/RI_ws_refer_27Feb19.shp")
@@ -42,36 +42,12 @@ allgages_defol$year <- as.numeric(substr(allgages_defol$year,1,4))
 allgages_defol <- mutate(allgages_defol, ref_gage = STAID %in% refgages_defol$STAID)
 #STAID_all <- unique(allgages_defol$STAID)
 
+allgages_defol <- read_csv("allgages_defol.csv")
+
 # Load table with info for the stream gages that had 15-min data 
 gages_dischargeDuration <- read_csv("Gage_Data/streamGagesCoverage.csv") %>%
   left_join(filter(allgages_defol, year == 2016)) 
 
-# #### Code used to download the 15-min instantaneous stream gage data
-#  # Download 15-minute instantaneous discharge USGS stream gage data (just run once!)
-# start_date <- "05-31"
-# end_date <- "11-01"
-# 
-# for(g in 1:nrow(gages_dischargeDuration)){
-#    years <- gages_dischargeDuration$yr_start[g]:gages_dischargeDuration$yr_end[g]
-#   
-#    for(y in 1:length(years)){
-# 
-#      tmp_yr <- readNWISuv(gages_dischargeDuration$STAID[g],
-#                           parameterCd =  "00060",
-#                           startDate = paste0(years[y],"-",start_date),
-#                           endDate = paste0(years[y],"-",end_date))
-#      
-#      if(nrow(tmp_yr)!=0){
-#        if(y == 1){
-#          site_yrs <- tmp_yr
-#        } else {
-#          site_yrs <- rbind(site_yrs, tmp_yr)
-#        }
-#      }
-#    }
-#    write_csv(site_yrs, paste0("Gage_Data/discharge_15min/",
-#                               gages_dischargeDuration$STAID[g],"_15min.csv"))
-# }
 
 # Plot and save each gage's FDC curve in a PDF file? (NEED TO SET FILE NAME BELOW)
 plot_FDC <- FALSE
