@@ -2,8 +2,6 @@
 # in southern New England.
 # This code could take up to a few hours to execute, depending on download speeds.
 
-library(dataRetrieval)
-
 download_15min_USGSgages <- function(gages_dischargeDuration){
   
   # Download 15-minute instantaneous discharge USGS stream gage data 

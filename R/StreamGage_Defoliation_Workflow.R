@@ -6,17 +6,15 @@
 
 
 # Code for flow duration curves and stats
-#library(dataRetrieval) # for downloading stream gage data
+library(dataRetrieval) # for downloading stream gage data
 library(tidyverse) 
 library(lubridate)
 library(daymetr)
-library(sf)
 library(cowplot)
 library(lme4)
-library(lmerTest)
-library(MuMIn)
 
-# Load the flow duration curve functions
+# Load the homegrown functions
+source("R/Functions/download_15min_USGSgages.R") # Download USGS gage data
 source("R/Functions/FDC_calc.R") # Calculate FDC curves
 source("R/Functions/FDC_percentiles.R") # Find percentiles on FDC curves
 
@@ -33,12 +31,12 @@ gages_dischargeDuration <- read_csv("data/streamGagesCoverage.csv") %>%
 # This may take awhile (1-2 hours) depending on download speeds. 
 download_15min_USGSgages(gages_dischargeDuration)
 
-# Plot and save each gage's FDC curve in a PDF file? (IF Y, SET FILE NAME BELOW)
-plot_FDC <- FALSE
-
 # Growing season window: June through September
 start_month <- 6
 end_month <- 9 
+
+# Plot and save each gage's FDC curve in a PDF file? (IF Y, SET FILE NAME BELOW)
+plot_FDC <- FALSE
 
 # Load and process 15-minute instantaneous stream gage data (previously downloaded locally):
 # Aggregate data for seasonal budgets & calculate statistics for flow duration curves
@@ -101,7 +99,6 @@ for(g in 1:nrow(gages_dischargeDuration)){
     FDC_stats_sites <- rbind(FDC_stats_sites, FDC_stats)
     gages_monthlyDischarge_hires <- rbind(gages_monthlyDischarge_hires, gages_monthlyDischarge_hires_site)
   }
-  
   
   if(plot_FDC == TRUE){
     pdf(paste0("FDC_plot_",dat$site_no[g],".pdf"))
