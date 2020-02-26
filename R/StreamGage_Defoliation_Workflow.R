@@ -44,7 +44,7 @@ for(g in 1:nrow(gages_dischargeDuration)){
   
   # Read 15-min gage discharge data
   dat <- read.csv(paste0("data/Gage_Data/",gages_dischargeDuration$STAID[g],"_15min.csv"), header=T) 
-  dat <- separate(dat, dateTime, into = c("date","time"), sep = "T", remove = F) 
+  dat <- tidyr::separate(dat, dateTime, into = c("date","time"), sep = " ", remove = F) 
   dat$time <- substr(dat$time,1,8)
   dat <- mutate(dat, date = as.Date(date, format = "%Y-%m-%d"),
                 time = hms(time),
@@ -54,7 +54,6 @@ for(g in 1:nrow(gages_dischargeDuration)){
   # Calculate seasonal budgets of discharge for each stream gage x year
   watershed_area <- gages_dischargeDuration[g,]$DRAIN_SQKM
   gages_monthlyDischarge_hires_site <- dat %>% 
-    mutate(time = hms(as_datetime(dateTime))) %>%
     filter(month >= start_month & month <= end_month) %>%
     mutate(month_year = paste0(month,"-",year)) %>%
     group_by(site_no, month_year, month, year) %>%
@@ -98,6 +97,7 @@ for(g in 1:nrow(gages_dischargeDuration)){
     FDC_stats_sites <- rbind(FDC_stats_sites, FDC_stats)
     gages_monthlyDischarge_hires <- rbind(gages_monthlyDischarge_hires, gages_monthlyDischarge_hires_site)
   }
+  
   
   if(plot_FDC == TRUE){
     pdf(paste0("FDC_plot_",dat$site_no[g],".pdf"))
