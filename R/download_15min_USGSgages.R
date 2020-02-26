@@ -1,12 +1,12 @@
-# Download 15-minute resolution data from the USGS stream gages
-# in southern New England
+# Download 15-minute resolution data for 1995-2017 from the USGS stream gages
+# in southern New England.
+# This code could take up to a few hours to execute, depending on download speeds.
 
-# Download 15-minute instantaneous discharge USGS stream gage data (just run once!)
+library(dataRetrieval)
+
+# Download 15-minute instantaneous discharge USGS stream gage data 
 start_date <- "05-31"
 end_date <- "11-01"
-
-## Load table with USGS stream gage codes in southern New England
-#allgages_defol <- read_csv("allgages_defol.csv")
 
 # Load table with info for the stream gages that had 15-min data 
 gages_dischargeDuration <- read_csv("data/streamGagesCoverage.csv") 
