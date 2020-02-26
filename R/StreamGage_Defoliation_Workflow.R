@@ -43,7 +43,7 @@ for(g in 1:nrow(gages_dischargeDuration)){
   print(paste0("Working on ",g))
   
   # Read 15-min gage discharge data
-  dat <- read.csv(paste0("Gage_Data/discharge_15min/",gages_dischargeDuration$STAID[g],"_15min.csv"), header=T) 
+  dat <- read.csv(paste0("data/Gage_Data/",gages_dischargeDuration$STAID[g],"_15min.csv"), header=T) 
   dat <- separate(dat, dateTime, into = c("date","time"), sep = "T", remove = F) 
   dat$time <- substr(dat$time,1,8)
   dat <- mutate(dat, date = as.Date(date, format = "%Y-%m-%d"),
