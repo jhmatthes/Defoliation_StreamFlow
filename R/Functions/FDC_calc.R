@@ -6,7 +6,6 @@
 #' @references Gustard, A., Bullock, A., and Dixon, J.M. (1992). Report No. 108:
 #'   Low flow estimation in the United Kingdom. 
 #'   Oxfordshire, United Kingdom: Institute of Hydrology.
-#' @author Jackie Matthes
 
 FDC_calc <- function(flow, baseline, mean_flow) {
   

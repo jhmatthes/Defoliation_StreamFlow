@@ -29,10 +29,14 @@ allgages_defol <- read_csv("data/allgages_defol.csv")
 gages_dischargeDuration <- read_csv("data/streamGagesCoverage.csv") %>%
   left_join(filter(allgages_defol, year == 2016)) 
 
-# Plot and save each gage's FDC curve in a PDF file? (NEED TO SET FILE NAME BELOW)
+# Download 15-min USGS gage data for 1995-2017 to local data/Gage_Data directory
+# This may take awhile (1-2 hours) depending on download speeds. 
+download_15min_USGSgages(gages_dischargeDuration)
+
+# Plot and save each gage's FDC curve in a PDF file? (IF Y, SET FILE NAME BELOW)
 plot_FDC <- FALSE
 
-# Window for calculating growing season metrics
+# Growing season window: June through September
 start_month <- 6
 end_month <- 9 
 
