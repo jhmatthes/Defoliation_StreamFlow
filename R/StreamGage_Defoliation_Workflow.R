@@ -55,7 +55,7 @@ for(g in 1:nrow(gages_dischargeDuration)){
   
   # Calculate seasonal budgets of discharge for each stream gage x year
   watershed_area <- gages_dischargeDuration[g,]$DRAIN_SQKM
-  gages_monthlyDischarge_hires_site <- dat %>% 
+  gages_monthlyDischarge_site <- dat %>% 
     filter(month >= start_month & month <= end_month) %>%
     mutate(month_year = paste0(month,"-",year)) %>%
     group_by(site_no, month_year, month, year) %>%
@@ -94,10 +94,10 @@ for(g in 1:nrow(gages_dischargeDuration)){
   
   if(g == 1){
     FDC_stats_sites <- FDC_stats 
-    gages_monthlyDischarge_hires <- gages_monthlyDischarge_hires_site
+    gages_monthlyDischarge <- gages_monthlyDischarge_site
   } else {
     FDC_stats_sites <- rbind(FDC_stats_sites, FDC_stats)
-    gages_monthlyDischarge_hires <- rbind(gages_monthlyDischarge_hires, gages_monthlyDischarge_hires_site)
+    gages_monthlyDischarge <- rbind(gages_monthlyDischarge, gages_monthlyDischarge_site)
   }
   
   if(plot_FDC == TRUE){
@@ -120,21 +120,23 @@ for(g in 1:nrow(gages_dischargeDuration)){
 }
 
 # Seasonal Budgets --------------------------------------------------------
-# Make months with more than 90% missing data NA
-gages_monthlyDischarge_hires$days_good_frac[gages_monthlyDischarge_hires$days_good_frac < 0.90] <- NA
 
-# Summarize monthly to seasonal yearly discharge, keep years with > 95% non-NA data
-gages_seasonalDischarge_hires <- gages_monthlyDischarge_hires %>%
+# Gage data filtering: keep months < 90% missing data, years <95% missing data,
+# gages with > 10 years baseline 15-min flow data.
+gages_monthlyDischarge$days_good_frac[gages_monthlyDischarge$days_good_frac < 0.90] <- NA
+
+# Sum monthly values to total seasonal discharge
+gages_seasonalDischarge <- gages_monthlyDischarge %>%
   mutate(STAID = site_no) %>%
   group_by(STAID, year) %>%
   summarize(discharge_seasonal = sum(discharge_monthly),
             yield_seasonal = sum(yield_monthly), 
             sum_NA = sum(is.na(discharge_monthly)),
-            prop_good = sum(days_good)/(31+31+30)) %>%
+            prop_good = sum(days_good)/(30+31+31+30)) %>%
   filter(prop_good > 0.95) 
 
 # Make table of coverage stats for min/max year and number of years per gage
-gages_coverage <- gages_seasonalDischarge_hires %>%
+gages_coverage <- gages_seasonalDischarge %>%
   group_by(STAID) %>%
   summarize(yr_start = min(year),
             yr_end = max(year),
@@ -143,21 +145,22 @@ gages_coverage <- gages_seasonalDischarge_hires %>%
             prop_yrs_missing = sum_NA/duration) 
 
 # Filter gages with fewer than 10 years of baseline data
-gages_seasonalDischarge_hires <- left_join(gages_seasonalDischarge_hires, gages_coverage, by = "STAID") %>%
+gages_seasonalDischarge <- left_join(gages_seasonalDischarge, gages_coverage, by = "STAID") %>%
   filter(duration > 14) %>%
-  ungroup(gages_seasonalDischarge_hires) %>%
+  ungroup(gages_seasonalDischarge) %>%
   mutate(STAID = str_pad(STAID, width = 8, side = "left", pad = "0"))
 
-gages_monthlyDischarge_hires <- gages_monthlyDischarge_hires %>%
+gages_monthlyDischarge <- gages_monthlyDischarge %>%
   mutate(STAID = str_pad(site_no, width = 8, side = "left", pad = "0"))
  
 # Load Daymet Precipitation Data ------------------------------------------
 # Load set of stream gage locations (lat, lon) 
-gage_locations <- read.csv("Gage_Data/gagelocations.csv", header = T) %>%
-  mutate(STAID_string = stringr::str_pad(STAID, width = 8, side = "left", pad = "0"))
+gage_locations <- read.csv("data/gagelocations.csv", header = T) %>%
+  mutate(STAID_string = stringr::str_pad(STAID, width = 8, side = "left", pad = "0")) %>%
+  filter(STAID_string %in% unique(gages_seasonalDischarge$STAID))
 
 # Download Daymet data at the USGS stream gage locaitons
-precipitationdata <- daymetr::download_daymet_batch(file_location = "Gage_Data/gagelocations.csv",
+precipitationdata <- daymetr::download_daymet_batch(file_location = "data/gagelocations.csv",
                                                 start = 1995, end = 2018, internal = T, silent = F)
 
 # Calculate seasonal Daymet precipitation at each stream gage
