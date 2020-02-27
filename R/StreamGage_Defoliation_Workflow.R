@@ -35,6 +35,8 @@ download_15min_USGSgages(gages_dischargeDuration)
 start_month <- 6
 end_month <- 9 
 
+
+# Calcculate Seasonal Water Yield ------------------------------------------
 # Plot and save each gage's FDC curve in a PDF file? (IF Y, SET FILE NAME BELOW)
 plot_FDC <- FALSE
 
@@ -141,28 +143,32 @@ gages_seasonalDischarge <- left_join(gages_seasonalDischarge, gages_coverage, by
   filter(good_years > 13) %>%
   ungroup(gages_seasonalDischarge) 
 
-# Load Daymet Precipitation Data ------------------------------------------
+# Calculate Seasonal Precipitation ------------------------------------------
 # Load set of stream gage locations (lat, lon) 
 gage_locations <- read.csv("data/gagelocations.csv", header = T) %>%
-  mutate(STAID_string = stringr::str_pad(STAID, width = 8, side = "left", pad = "0")) %>%
-  filter(STAID_string %in% unique(gages_seasonalDischarge$STAID))
+  mutate(STAID_string = stringr::str_pad(STAID, width = 8, side = "left", pad = "0")) 
 
 # Download Daymet data at the USGS stream gage locaitons
 precipitationdata <- daymetr::download_daymet_batch(file_location = "data/gagelocations.csv",
                                                 start = 1995, end = 2018, internal = T, silent = F)
 
-# Calculate seasonal Daymet precipitation at each stream gage
+# Calculate seasonal precipitation at each stream gage
 for(g in 1:nrow(gage_locations)){
+  
+  # Match STAID to get correct drainage size
+  gage_match <- which(allgages_defol$STAID==str_pad(precipitationdata[[g]]$site, width = 8, side = "left", pad = "0"))
+  gage_drainage <- allgages_defol$DRAIN_SQKM[gage_match][1]
+  
   gage_seasonalPrecip <- precipitationdata[[g]]$data %>%
     mutate(date = (as.Date(paste0(precipitationdata[[g]]$data$year,'-01-01')) + 
                      precipitationdata[[g]]$data$yday),
            month = lubridate::month(date)) %>%
     filter(month >= start_month & month <= end_month) %>%
     group_by(year) %>%
-    summarize(precip_ann = sum(prcp..mm.day.)/1000, #convert precip mm to m
+    summarize(precip_ann = sum(prcp..mm.day.,na.rm=TRUE)/1000, #convert precip mm to m
               num_na = sum(is.na(prcp..mm.day.))) %>%
     mutate(STAID = stringr::str_pad(precipitationdata[[g]]$site, width = 8, side = "left", pad = "0"),
-           precip_gage = precip_ann*(allgages_defol$DRAIN_SQKM[g]*1000^2)) #m * m2(drainage area) = total m3 precip/gage
+           precip_gage = precip_ann*(gage_drainage*1000^2)) #m * m2(drainage area) = total m3 precip/gage
   
   # Aggregate seasonal gage precip into one dataframe
   if(g == 1){
@@ -172,11 +178,13 @@ for(g in 1:nrow(gage_locations)){
   }
 }
 
-# Combine precipitation and discharge data: calculate yield-to-precip ratio
-gages_dischargePrecip <- full_join(gages_seasonalPrecip, gages_seasonalDischarge, 
+# Combine precipitation and discharge data & calculate yield-to-precip ratio
+gages_dischargePrecip <- left_join(gages_seasonalDischarge, gages_seasonalPrecip,
                                    by = c("STAID", "year")) %>%
   mutate(prop_precip = yield_seasonal/precip_ann)
 
+
+# Calculate Anomalies from Baseline Sesaonal Yield & Yield:Precip  --------------------------------------------
 # Calculate the departures in precipitation & discharge from the 20-year mean (1995-2014)
 dischargePrecip_baselineMean <- gages_dischargePrecip %>%
   filter(year < 2015) %>%
@@ -186,8 +194,8 @@ dischargePrecip_baselineMean <- gages_dischargePrecip %>%
             precip_gage_mean = mean(precip_gage, na.rm=TRUE),
             discharge_mean = mean(discharge_seasonal, na.rm=TRUE),
             yield_mean = mean(yield_seasonal, na.rm=TRUE),
-            yieldratio_mean = mean(yield_seasonal/precip_ann, na.rm=TRUE)) #%>%
-#  filter(prop_precip_mean < 2)
+            yieldratio_mean = mean(yield_seasonal/precip_ann, na.rm=TRUE)) %>%
+  filter(yieldratio_mean < 2)
 
 dischargePrecip <- left_join(dischargePrecip_baselineMean, gages_dischargePrecip, by = "STAID") %>%
   mutate(prop_precip_norm = prop_precip - prop_precip_mean,
@@ -206,56 +214,6 @@ dischargePrecip <- dischargePrecip %>%
   left_join(gages_defol_vals, by = c("STAID", "year")) %>% 
   filter(STAID != '01105880', year >=2015 & year<2018,
          !is.na(yieldratio_norm))  #remove stream gage on cape cod, that is not a single basin
-
-# Monthly yield & precip anomalies ----------------------------------------
-
-# Departures in monthly discharge from the 20-year mean (1995-2014)
-dischargeMonthly_mean <- gages_monthlyDischargePrecip %>%
-  filter(year < 2015) %>%
-  group_by(STAID, month) %>%
-  summarize(prop_precip_mean = mean(prop_precip, na.rm=TRUE),
-            precip_mean = mean(precip_gage, na.rm=TRUE),
-            precip_mean_mm = mean(precip_sum*1000, na.rm=TRUE),
-            discharge_mean = mean(discharge_monthly, na.rm=TRUE),
-            yield_mean = mean(yield_monthly, na.rm=TRUE),
-            yieldratio_mean = mean(yield_monthly/precip_sum, na.rm=TRUE)) %>%
-  filter(abs(yield_mean) < 500)
-
-#Monthly statistics of yield and precip departures from baseline
-# Yield ratio calculates the departure of mean water yield that is theoretically independent of total precipitation amount 
-dischargeMonthlyPrecip <- left_join(dischargeMonthly_mean, gages_monthlyDischargePrecip, by = "STAID") %>%
-  mutate(prop_precip_norm = prop_precip - prop_precip_mean,
-         prop_precip_yield = yield_monthly/precip_sum,
-         precip_norm = precip_gage - precip_mean,
-         precip_norm_mm = precip_sum*1000 - precip_mean_mm,
-         discharge_norm = discharge_monthly - discharge_mean,
-         yield_norm = yield_monthly - yield_mean,
-         yieldratio_norm = yield_monthly/precip_sum - yieldratio_mean,
-         month = month.x) 
-
-allgages_defol_vals <- allgages_defol %>% 
-  filter(STAID %in% unique(dischargeMonthlyPrecip$STAID)) %>% 
-  mutate(defol_mean = defol_mean*-1)
-dischargeMonthlyPrecip <- dischargeMonthlyPrecip %>% 
-  left_join(allgages_defol_vals, by = c("STAID", "year")) %>% #make defoliation positive (moved out of doing it QGIS)
-  filter(STAID != '01105880') #remove stream gage on cape cod, that is not a single basin
-
-monthly_YtoP <- ggplot(filter(dischargeMonthlyPrecip, year >= 2015)) +
-  geom_point(aes(x = defol_mean, y = yieldratio_norm, color = as.factor(year))) +
-  geom_smooth(aes(x = defol_mean, y = yieldratio_norm, color = as.factor(year)), method = "lm")+
-  scale_color_manual(name = "Year" , values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4", "mediumpurple4"))+
-  labs(x = "Defoliation metric", y = "Yield:Precip anomaly") +
-  facet_wrap(~month)+
-  theme_cowplot()+
-  theme(legend.position="none")
-
-# # Look at relationship between the yield:precip ratio
-# # and the size of the drainage area
-# ggplot(filter(dischargeMonthlyPrecip, DRAIN_SQKM < 100, 
-#               year == 2017)) +
-#   geom_point(aes(x = DRAIN_SQKM, y = yieldratio_norm, color = as.factor(year))) +
-#   scale_x_log10() +
-#   theme_cowplot()
 
 
 # Plots and Linear Models -----------------------------------------------
