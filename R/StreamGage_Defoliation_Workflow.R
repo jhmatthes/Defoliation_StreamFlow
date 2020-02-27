@@ -236,7 +236,8 @@ FIG2_defol_boxplot <- ggplot(dischargePrecip, aes(as.factor(year), defol_mean,
 FIG2_defol_boxplot
 
 #FIG S1: Seasonal Precipitation Boxplot
-FIGS1_precip_boxplot <- ggplot(filter(dischargePrecip, year >=2015),aes(as.factor(year),precip_ann*1000, color = as.factor(year))) +
+FIGS1_precip_boxplot <- ggplot(filter(dischargePrecip, year >=2015),
+                               aes(as.factor(year),precip_ann*1000, color = as.factor(year))) +
   geom_hline(yintercept = mean(filter(dischargePrecip, year < 2015)$precip_mean, na.rm = T), lty = 2) +
   geom_boxplot(alpha = 0.2, outlier.colour = NA)+
   geom_point(aes(shape = ref_gage), size = 1.5, alpha = 0.8, position = "jitter")+
@@ -263,11 +264,12 @@ FIG3A_YAnom_Defol <- ggplot(dischargePrecip) +
 #Precip Anomaly ~ Defoliation Model
 Precipmod_all <- lmer(precip_norm ~ defol_mean + (1 | year),
                       data = dischargePrecip)
-dischargePrecip$Precipmod_all<- predict(Precipmod_all) #cannot calculate predictions with both standard errors and random effects
+dischargePrecip$Precipmod_all<- predict(Precipmod_all) 
 
 FIG3B_PAnom_Defol <- ggplot(dischargePrecip) +
   geom_point(aes(x = defol_mean, y = precip_norm, color = as.factor(year))) +
-  geom_line(aes(x = defol_mean, y = Precipmod_all, group = as.factor(year), color = as.factor(year)), size = 1, linetype = "dashed") +
+  geom_line(aes(x = defol_mean, y = Precipmod_all, group = as.factor(year), 
+                color = as.factor(year)), size = 1, linetype = "dashed") +
   scale_color_manual(values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4", "mediumpurple4"))+
   labs(x = "Defoliation metric", y = "Precipitation anomaly (m)")+
   theme_cowplot()+
@@ -276,11 +278,12 @@ FIG3B_PAnom_Defol <- ggplot(dischargePrecip) +
 #Yield:Precip Ratio ~ Defoliation Model
 YPmod_all <- lmer(yieldratio_norm ~ defol_mean + (1 | year),
                   data = dischargePrecip, control = lmerControl(optimizer ="Nelder_Mead"))
-dischargePrecip$YPmod_all<- predict(YPmod_all) #cannot calculate predictions with both standard errors and random effects
+dischargePrecip$YPmod_all<- predict(YPmod_all) 
 
 FIG3C_YPRatio_Defol <- ggplot(dischargePrecip) +
   geom_point(aes(x = defol_mean, y = yieldratio_norm, color = as.factor(year))) +
-  geom_line(aes(x = defol_mean, y = YPmod_all, group = as.factor(year), color = as.factor(year)), size = 1, linetype = "solid") +
+  geom_line(aes(x = defol_mean, y = YPmod_all, group = as.factor(year), color = as.factor(year)), 
+            size = 1, linetype = "solid") +
   scale_color_manual(values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4", "mediumpurple4"))+
   labs(x = "Defoliation metric", y = "Yield:Precip anomaly (m)", col = "Year")+
   theme_cowplot()+
@@ -292,188 +295,80 @@ FIG3_plots <- plot_grid(FIG3A_YAnom_Defol, FIG3B_PAnom_Defol,
                         FIG3C_YPRatio_Defol, labels = c("A", "B", "C"), nrow = 1)
 plot_grid(FIG3_plots, FIG3_leg, ncol = 1, rel_heights = c(1.1, 0.2))
 
-## Code to add in correct model to plots
-#temp dataset to include lmer model predictions (easisest to remove NAs for predicting)
-# complete_cases <- function(query, d) { 
-#   d <- filter(dischargePrecip, year >= 2015 & year < 2018)
-#   cols <- c(grep(query, names(d)))
-#   i <- complete.cases(d[,cols],d$defol_mean) #subset to present values for query of interest
-#   d <- d[i,]
-#   return(d)
-# }
-#Yearly Defoliation Boxplot
-dischargePrecip$ref_gage <- as.factor(dischargePrecip$ref_gage)
-levels(dischargePrecip$ref_gage) <- c("Non-Ref", "Ref")
-defol_boxplot <- ggplot(dischargePrecip, aes(as.factor(year), defol_mean, 
-                            color = as.factor(year), shape = ref_gage, 
-                            size = ref_gage, group = year)) + 
-  geom_hline(yintercept = 0, lty = 2) + 
-  geom_boxplot(alpha = 0.2, outlier.colour = NA)+ 
-  geom_point( alpha = 0.8, position = "jitter")+
-  scale_size_discrete(range = c(2,3.5), name = NULL, labels = NULL,breaks = NULL) + 
-  scale_color_manual(name = "Year", values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4", "mediumpurple4"))+
-  scale_shape_discrete(name = "Gage class", breaks = c("Non-Ref", "Ref"), labels = c("Non-Reference", "Reference"))+
-#  facet_wrap(~ref_gage) + 
-  labs(x = "Year", y = "Defoliation Metric")+
-  theme_cowplot()
-
-mean_precip <- dischargePrecip %>% 
-  filter(year < 2015)# %>% 
-  mutate(mean = mean(precip_mean, na.rm = T)) 
-
-#Yearly precipitation boxplot
-precip_boxplot <- ggplot(filter(dischargePrecip, year >=2015),aes(as.factor(year),precip_ann*1000, color = as.factor(year))) +
-  geom_hline(yintercept = mean(filter(dischargePrecip, year < 2015)$precip_mean, na.rm = T), lty = 2) +
-  geom_boxplot(alpha = 0.2, outlier.colour = NA)+
-  geom_point(aes(shape = ref_gage), size = 1.5, alpha = 0.8, position = "jitter")+
-  scale_color_manual(name = "Year", values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4", "mediumpurple4"))+
-  scale_shape_discrete(name = "Class", breaks = c("FALSE", "TRUE"), labels = c("Non-Reference", "Reference"))+
-  labs(x = "Year", y = "Precipitation (mm)")+
-  theme_cowplot()
-
-#Yield anomaly
-#yield_norm_prediction <- complete_cases('yield_norm', dischargePrecip)
-Ymod_all <- lmer(yield_norm ~ defol_mean + (1 | year),
-            data = dischargePrecip, 
-            control = lmerControl(optimizer ="Nelder_Mead"))
-summary(Ymod_all)
-dischargePrecip$Ymod_all<- predict(Ymod_all) #cannot calculate predictions with both standard errors and random effects
-
-all_1 <- ggplot(dischargePrecip) +
-  geom_point(aes(x = defol_mean, y = yield_norm, color = as.factor(year))) +
-  geom_line(aes(x = defol_mean, y = Ymod_all, group = as.factor(year), color = as.factor(year)), size = 1, linetype = "solid") +
-  scale_color_manual(values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4", "mediumpurple4"))+
-  labs(x = "Defoliation metric", y = "Water yield anomaly (m)")+
-  #facet_wrap(~year)+
-  theme_cowplot()+
-  theme(legend.position="none")
-
-#Precip anomaly
-#precip_norm_prediction <- complete_cases('precip_norm', dischargePrecip)
-Precipmod_all <- lmer(precip_norm ~ defol_mean + (1 | year),
-            data = dischargePrecip)
-dischargePrecip$Precipmod_all<- predict(Precipmod_all) #cannot calculate predictions with both standard errors and random effects
-
-all_2 <- ggplot(dischargePrecip) +
-  geom_point(aes(x = defol_mean, y = precip_norm, color = as.factor(year))) +
-  geom_line(aes(x = defol_mean, y = Precipmod_all, group = as.factor(year), color = as.factor(year)), size = 1, linetype = "dashed") +
-  scale_color_manual(values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4", "mediumpurple4"))+
-  labs(x = "Defoliation metric", y = "Precipitation anomaly (m)")+
-  #facet_wrap(~year)+
-  theme_cowplot()+
-  theme(legend.position="none")
-
-#Yield Ratio
-#yieldratio_norm_prediction <- complete_cases('yieldratio_norm', dischargePrecip)
-YPmod_all <- lmer(yieldratio_norm ~ defol_mean + (1 | year),
-            data = dischargePrecip, control = lmerControl(optimizer ="Nelder_Mead"))
-dischargePrecip$YPmod_all<- predict(YPmod_all) #cannot calculate predictions with both standard errors and random effects
-
-all_3 <- ggplot(dischargePrecip) +
-  geom_point(aes(x = defol_mean, y = yieldratio_norm, color = as.factor(year))) +
-  geom_line(aes(x = defol_mean, y = YPmod_all, group = as.factor(year), color = as.factor(year)), size = 1, linetype = "solid") +
-  scale_color_manual(values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4", "mediumpurple4"))+
-  labs(x = "Defoliation metric", y = "Yield:Precip anomaly (m)", col = "Year")+
-  #facet_wrap(~year)+
-  theme_cowplot()+
-  theme(legend.position="none")
-
-all_3_leg <- get_legend(all_3 + theme(legend.position="bottom"))
-
-allgages_plots <- plot_grid(all_1, all_2, all_3, labels = c("A", "B", "C"), nrow = 1)
-plot_grid(allgages_plots, all_3_leg, ncol = 1, rel_heights = c(1.1, 0.2))
-
 
 # REF GAGES ONLY: Yield anomaly, precip anomaly, yield:precip anomaly
 # Filter just to reference gages
-ref_dischargePrecip <- dischargePrecip[dischargePrecip$STAID %in% ref_STAID,]
+dischargePrecip_ref <- filter(dischargePrecip, ref_gage == "Ref")
 
-# ref GAGES: Yield anomaly, precip anomaly, yield:precip anomaly
-#yield_norm_prediction_ref <- complete_cases('yield_norm', ref_dischargePrecip)
+# ref gages: Yield anomaly, precip anomaly, yield:precip anomaly
 Ymod_ref <- lmer(yield_norm ~ defol_mean + (1 | year),
-            data = ref_dischargePrecip, control = lmerControl(optimizer ="Nelder_Mead"))
-ref_dischargePrecip$Ymod_ref<- predict(Ymod_ref) #cannot calculate prediction_refs with both standard errors and random effects
+            data = dischargePrecip_ref, control = lmerControl(optimizer ="Nelder_Mead"))
+dischargePrecip_ref$Ymod_ref<- predict(Ymod_ref) 
 
-#Yield anomaly
-ref_1 <- ggplot(ref_dischargePrecip) +
+# Ref gages: Yield anomaly ~ Defol
+FIGS2A <- ggplot(dischargePrecip_ref) +
   geom_point(aes(x = defol_mean, y = yield_norm, color = as.factor(year))) +
-  geom_line(aes(x = defol_mean, y = Ymod_ref, group = as.factor(year), color = as.factor(year)), size = 1, linetype = "solid") +
+  geom_line(aes(x = defol_mean, y = Ymod_ref, group = as.factor(year), 
+                color = as.factor(year)), size = 1, linetype = "solid") +
   scale_color_manual(values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4", "mediumpurple4"))+
   labs(x = "Defoliation metric", y = "Water yield anomaly (m)")+
-  #facet_wrap(~year)+
   theme_cowplot()+
   theme(legend.position="none")
 
-#Precip anomaly
-#precip_norm_prediction_ref <- complete_cases('precip_norm', ref_dischargePrecip)
+#Ref gages: Precip anomaly ~ Defol
 Precipmod_ref <- lmer(precip_norm ~ defol_mean + (1 | year),
-            data = ref_dischargePrecip, control = lmerControl(optimizer ="Nelder_Mead"))
-ref_dischargePrecip$Precipmod_ref<- predict(Precipmod_ref) #cannot calculate prediction_refs with both standard errors and random effects
+            data = dischargePrecip_ref, control = lmerControl(optimizer ="Nelder_Mead"))
+dischargePrecip_ref$Precipmod_ref<- predict(Precipmod_ref) 
 
-ref_2 <- ggplot(ref_dischargePrecip) +
+FIGS2B <- ggplot(dischargePrecip_ref) +
   geom_point(aes(x = defol_mean, y = precip_norm, color = as.factor(year))) +
-  geom_line(aes(x = defol_mean, y = Precipmod_ref, group = as.factor(year), color = as.factor(year)), size = 1, linetype = "dashed") +
+  geom_line(aes(x = defol_mean, y = Precipmod_ref, group = as.factor(year), 
+                color = as.factor(year)), size = 1, linetype = "dashed") +
   scale_color_manual(values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4", "mediumpurple4"))+
   labs(x = "Defoliation metric", y = "Precipitation anomaly (m)")+
-  #facet_wrap(~year)+
   theme_cowplot()+
   theme(legend.position="none")
 
-#Yield Ratio
-#yieldratio_norm_prediction_ref <- complete_cases('yieldratio_norm', ref_dischargePrecip)
+# Ref Gages: Yield:Precip Ratio ~ Defol
 YPmod_ref <- lmer(yieldratio_norm ~ defol_mean + (1 | year),
-            data = ref_dischargePrecip, control = lmerControl(optimizer ="Nelder_Mead"))
-ref_dischargePrecip$YPmod_ref<- predict(YPmod_ref) #cannot calculate prediction_refs with both standard errors and random effects
+            data = dischargePrecip_ref, control = lmerControl(optimizer ="Nelder_Mead"))
+dischargePrecip_ref$YPmod_ref<- predict(YPmod_ref) 
 
-ref_3 <- ggplot(ref_dischargePrecip) +
+FIGS2C <- ggplot(dischargePrecip_ref) +
   geom_point(aes(x = defol_mean, y = yieldratio_norm, color = as.factor(year))) +
-  geom_line(aes(x = defol_mean, y = YPmod_ref, group = as.factor(year), color = as.factor(year)), size = 1, linetype = "solid") +
+  geom_line(aes(x = defol_mean, y = YPmod_ref, group = as.factor(year), 
+                color = as.factor(year)), size = 1, linetype = "solid") +
   scale_color_manual(values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4", "mediumpurple4"))+
   labs(x = "Defoliation metric", y = "Yield:Precip anomaly (m)", col = 'Year')+
-  #facet_wrap(~year)+
   theme_cowplot()+
   theme(legend.position="none")
 
-ref_3_leg <- get_legend(ref_3 + theme(legend.position="bottom"))
+FIGS2_leg <- get_legend(FIGS2C + theme(legend.position="bottom"))
+FIGS2_plots <- plot_grid(FIGS2A, FIGS2B, FIGS2C, labels = c("A", "B", "C"), nrow = 1)
+plot_grid(FIGS2_plots, FIGS2_leg, ncol = 1, rel_heights = c(1, 0.2))
 
-refgages_plots <- plot_grid(ref_1, ref_2, ref_3, labels = c("A", "B", "C"), nrow = 1)
-plot_grid(refgages_plots, ref_3_leg, ncol = 1, rel_heights = c(1, 0.2))
-
-# Save Plots --------------------------------------------------------------
-## save plots figure folder (both main and not main)
-#Defoliation Box Plot
-#save_plot("Graphs/Supp_Figures/defol_boxplot.jpg", defol_boxplot, base_height = 4, base_width = 6)
-#Precipitation Box plot
-#save_plot("Graphs/Supp_Figures/precip_boxplot.jpg", precip_boxplot, base_height = 4, base_width = 6)
-#All Gages
-#save_plot("Graphs/Main_Figures/allgages_plots_lme_int.jpg", plot_grid(allgages_plots, all_3_leg, ncol = 1, rel_heights = c(1.2, 0.1)), base_height = 3.56, base_width = 10)
-#Reference Gages
-#save_plot("Graphs/Main_Figures/refgages_plots_lme_int.jpg", refgages_plots, base_height = 3.5, base_width = 10)
-
-# Bind together stats for output table 
-# And Plot year effects for intercept and slope
+# Bind together model stats for output table 
 year_effects <- data.frame(data = rep(c(rep("All",3),rep("Ref Only",3)),2),
                            response = c(rep("Yield Anom",6),rep("Y:Prcp Anom",6)),
                            year = rep(2015:2017,4),
-                           intercept = round(c(coef(Ymod_all)$year[,1],
+                           intercept = signif(c(coef(Ymod_all)$year[,1],
                                                coef(Ymod_ref)$year[,1],
                                                coef(YPmod_all)$year[,1],
                                                coef(YPmod_ref)$year[,1]),2),
-                           std_err_intercept = round(c(rep(sqrt(diag(vcov(Ymod_all)))[1],3), 
+                           std_err_intercept = signif(c(rep(sqrt(diag(vcov(Ymod_all)))[1],3), 
                                              rep(sqrt(diag(vcov(Ymod_ref)))[1],3), 
                                              rep(sqrt(diag(vcov(YPmod_all)))[1],3), 
                                              rep(sqrt(diag(vcov(YPmod_ref)))[1],3)),2),
-                           slope = round(c(coef(Ymod_all)$year[,2],
+                           slope = signif(c(coef(Ymod_all)$year[,2],
                                            coef(Ymod_ref)$year[,2],
                                            coef(YPmod_all)$year[,2],
                                            coef(YPmod_all)$year[,2]),2), 
-                           std_err_slope = round(c(rep(sqrt(diag(vcov(Ymod_all)))[2],3), 
+                           std_err_slope = signif(c(rep(sqrt(diag(vcov(Ymod_all)))[2],3), 
                                                    rep(sqrt(diag(vcov(Ymod_ref)))[2],3), 
                                                    rep(sqrt(diag(vcov(YPmod_all)))[2],3), 
                                                    rep(sqrt(diag(vcov(YPmod_ref)))[2],3)),2))
 
-#write.csv(year_effects, file = "year_effects_inteceptmodel.csv")
-#Cut graphs of yearly intercepts and slopes, located in prior workflow
+#write.csv(year_effects, file = "year_effects_inteceptmodel.csv", row.names=FALSE)
 
 
 # FLOW DURATION CURVE STATISTICS ------------------------------------------
@@ -482,12 +377,12 @@ FDC_stats_sites <- mutate(FDC_stats_sites, year = datasub)
 FDC_stats_sites <- as_tibble(FDC_stats_sites)
 
 # Calculate FDC defoliation year departure from baseline stats
-FDC_discharge <- filter(FDC_stats_sites, FDC_type == "discharge")
-sites <- unique(FDC_stats_sites$STAID)
+FDC_discharge <- filter(FDC_stats_sites, FDC_type == "discharge",
+                        STAID %in% unique(dischargePrecip$STAID))
+sites <- unique(FDC_discharge$STAID)
 
-# Get stats column indices for difference calculation
+# Find FDC 2015-2017 departure from 10+ year FDC baseline conditions
 stats_columns <- grep("flow_", colnames(FDC_discharge))
-
 for(g in 1:length(sites)){
   for(s in 1:length(stats_columns)){
     
@@ -524,7 +419,7 @@ for(g in 1:length(sites)){
   }
 }
 
-# Join defoliation with FDC stats difference data
+# Join FDC stats departure data with defoliation
 allgages_defol$year <- as.character(allgages_defol$year)
 flow_diff_defol <- left_join(FDC_departures, allgages_defol, 
                              by = c("STAID", "year")) %>%
@@ -532,93 +427,47 @@ flow_diff_defol <- left_join(FDC_departures, allgages_defol,
   mutate(defol_mean_pos = defol_mean * -1,
          flow_diff = flow_diff * 100)
 
-# Plot changes in 25%tile against defoliation, by year
-all_plot <- ggplot(filter(flow_diff_defol, stat_type == "flow_25"), 
-       aes(x = defol_mean_pos, y = flow_diff)) +
-  geom_point() +
-  geom_smooth(method = "lm")+
-  facet_wrap(~year) +
-  ylim(c(-100,100)) +
-  labs(x = "Defoliation metric", 
-       y = expression(paste("Percent ", Delta, 
-                            " flow at 25% exceedence")),
-       title = "All Gages") +
-  theme_cowplot()
+# FDC Departure ~ Defoliation Models  --------------------------------------------
 
-ref_plot <- ggplot(filter(flow_diff_defol, stat_type == "flow_25", ref_gage == TRUE),
-              aes(x = defol_mean_pos, y = flow_diff)) +
-  geom_point() +
-  geom_smooth(method = "lm")+
-  facet_wrap(~year) +
-  ylim(c(-100,100)) +
-  labs(x = "Defoliation metric", 
-       y = expression(paste("Percent ", Delta, 
-                            " flow at 25% exceedence")),
-       title = "Reference Gages") +
-  theme_cowplot()
+# 25% FDC exceedence (low probability of flow value) Model 
+ALL_FDC25 <- lmer(flow_diff ~ defol_mean_pos + (1 | year), 
+                  data = filter(flow_diff_defol, stat_type == "flow_25"),
+                  control = lmerControl(optimizer ="Nelder_Mead"))
+flow_diff_FDC25 <- filter(flow_diff_defol, stat_type == "flow_25")
+flow_diff_FDC25$pred_FDC25 <- predict(ALL_FDC25)
 
-plot_grid(ref_plot, all_plot, nrow = 1)
+REF_FDC25 <- lmer(flow_diff ~ defol_mean_pos + (1 | year), 
+                  data = filter(flow_diff_defol, stat_type == "flow_25", ref_gage == "TRUE"), 
+                  control = lmerControl(optimizer ="Nelder_Mead"))
+flow_diff_FDC25_ref <- filter(flow_diff_defol, stat_type == "flow_25", ref_gage == "TRUE")
+flow_diff_FDC25_ref$pred_FDC25 <- predict(REF_FDC25)
 
-# FDC Mixed Statistics Models  --------------------------------------------
-#set up a dataframe to store models in 
-prediction_models_ref <- data.frame(filter(flow_diff_defol, ref_gage == 'TRUE'  & stat_type == 'flow_05')$defol_mean_pos)
-complete_cases_FDC <- function(query, d, flow, ref) {
-  d <- filter(flow_diff_defol, year >= 2015 & year < 2018)
-  cols <- c(grep(query, names(d)))
-  i <-
-    complete.cases(d[, cols]) #subset to present values for query of interest
-  d <- d[i, ]
-  d <- filter(d, stat_type == flow)
-  d <- d[, c(1, 3, cols, 10)]
-  if (ref == T) {
-    d <- filter(d, ref_gage == TRUE)
-  }
-  return(d)
-}
-prediction_models_all <- complete_cases_FDC(query = 'defol_mean_pos', d = flow_diff_defol, flow = 'flow_05', ref = F)
-prediction_models_ref <- complete_cases_FDC(query = 'defol_mean_pos', d = flow_diff_defol, flow = 'flow_05', ref = T)
-# All Gages 50% exceedence (medium probability of flow value)
-ALL_FDC50_int <- lmer(flow_diff ~ defol_mean_pos + (1 | year), 
+# 50% FDC exceedence (medium probability of flow value) Model
+ALL_FDC50 <- lmer(flow_diff ~ defol_mean_pos + (1 | year), 
                       data = filter(flow_diff_defol, stat_type == "flow_50"),
                       control = lmerControl(optimizer ="Nelder_Mead"))
+flow_diff_FDC50 <- filter(flow_diff_defol, stat_type == "flow_50")
+flow_diff_FDC50$pred_FDC50 <- predict(ALL_FDC50)
 
-prediction_models_all$flow_50 <- predict(ALL_FDC50_int)
-MuMIn::r.squaredGLMM(ALL_FDC50_int)
-REF_FDC50_int <- lmer(flow_diff ~ defol_mean_pos + (1 | year), 
-                       data = filter(flow_diff_defol, stat_type == "flow_50", ref_gage == "TRUE"), 
+REF_FDC50 <- lmer(flow_diff ~ defol_mean_pos + (1 | year), 
+                      data = filter(flow_diff_defol, stat_type == "flow_50", ref_gage == "TRUE"), 
                       control = lmerControl(optimizer ="Nelder_Mead"))
-prediction_models_ref$flow_50 <- predict(REF_FDC50_int)
+flow_diff_FDC50_ref <- filter(flow_diff_defol, stat_type == "flow_50", ref_gage == "TRUE")
+flow_diff_FDC50_ref$pred_FDC50 <- predict(REF_FDC50)
 
-# All Gages 25% exceedence (low probability of flow value)
-ALL_FDC25_int <- lmer(flow_diff ~ defol_mean_pos + (1 | year), 
-                      data = filter(flow_diff_defol, stat_type == "flow_25"))
-prediction_models_all$flow_25 <- predict(ALL_FDC25_int)
-MuMIn::r.squaredGLMM(ALL_FDC25_int)
-# Reference gages 25% exceedence (low probability of flow value)
-REF_FDC25_int <- lmer(flow_diff ~ defol_mean_pos + (1 | year), 
-                      data = filter(flow_diff_defol, stat_type == "flow_25", ref_gage == "TRUE"))
-prediction_models_ref$flow_25 <- predict(REF_FDC25_int)
+# 75% FDC exceedence (high probability of flow value) Model
+ALL_FDC75 <- lmer(flow_diff ~ defol_mean_pos + (1 | year), 
+                  data = filter(flow_diff_defol, stat_type == "flow_75"),
+                  control = lmerControl(optimizer ="Nelder_Mead"))
+flow_diff_FDC75 <- filter(flow_diff_defol, stat_type == "flow_75")
+flow_diff_FDC75$pred_FDC75 <- predict(ALL_FDC75)
 
+REF_FDC75 <- lmer(flow_diff ~ defol_mean_pos + (1 | year), 
+                  data = filter(flow_diff_defol, stat_type == "flow_75", ref_gage == "TRUE"), 
+                  control = lmerControl(optimizer ="Nelder_Mead"))
+flow_diff_FDC75_ref <- filter(flow_diff_defol, stat_type == "flow_75", ref_gage == "TRUE")
+flow_diff_FDC75_ref$pred_FDC75 <- predict(REF_FDC75)
 
-# All Gages 75% exceedence (high probability of flow value)
-ALL_FDC75_int <- lmer(flow_diff ~ defol_mean_pos + (1 | year), 
-                      data = filter(flow_diff_defol, stat_type == "flow_75"))
-prediction_models_all$flow_75 <- predict(ALL_FDC75_int)
-# Reference Gages 75% exceedence (high probability of flow value)
-REF_FDC75_int <- lmer(flow_diff ~ defol_mean_pos + (1 | year), 
-                      data = filter(flow_diff_defol, stat_type == "flow_75", ref_gage == "TRUE"))
-prediction_models_ref$flow_75 <- predict(REF_FDC75_int)
-
-#05 Models Highest propability flow 
-
-
-ALL_FDC05_int <- lmer(flow_diff ~ defol_mean_pos + (1 | year), 
-                      data = filter(flow_diff_defol, stat_type == "flow_05"))
-prediction_models_all$flow_05 <- predict(ALL_FDC05_int)
-# Reference gages
-REF_FDC05_int <- lmer(flow_diff ~ defol_mean_pos + (1 | year), 
-                      data = filter(flow_diff_defol, stat_type == "flow_05", ref_gage == "TRUE"))
-prediction_models_ref$flow_05 <- predict(REF_FDC05_int)
 
 #Stack Predictions for Graphing 
 temp <- prediction_models_ref %>% 
