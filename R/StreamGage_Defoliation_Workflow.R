@@ -55,16 +55,26 @@ for(g in 1:nrow(gages_dischargeDuration)){
   
   # Calculate seasonal budgets of discharge for each stream gage x year
   watershed_area <- gages_dischargeDuration[g,]$DRAIN_SQKM
-  gages_monthlyDischarge_site <- dat %>% 
+  # gages_monthlyDischarge_site <- dat %>% 
+  #   filter(month >= start_month & month <= end_month) %>%
+  #   mutate(month_year = paste0(month,"-",year)) %>%
+  #   group_by(site_no, month_year, month, year) %>%
+  #   summarize(discharge_monthly = sum(X_00060_00000*0.0283168*60*15, na.rm=TRUE), #ft3/s to m3/s to m3/15min
+  #             yield_monthly = sum(X_00060_00000*0.0283168*60*15, na.rm=TRUE)/(mean(watershed_area)*1000^2), # yield in m (m3/m2) 
+  #             sum_NA = sum(is.na(X_00060_00000)),
+  #             sum_good = length(grep("A", X_00060_00000_cd))) %>%
+  #   mutate(prop_days_good = sum_good/(4*24),
+  #          prop_good_frac = sum_good/(4*24)/days_in_month(month))
+  
+  gages_seasonalDischarge_site <- dat %>% 
     filter(month >= start_month & month <= end_month) %>%
-    mutate(month_year = paste0(month,"-",year)) %>%
-    group_by(site_no, month_year, month, year) %>%
-    summarize(discharge_monthly = sum(X_00060_00000*0.0283168*60*15, na.rm=TRUE), #ft3/s to m3/s to m3/15min
-              yield_monthly = sum(X_00060_00000*0.0283168*60*15, na.rm=TRUE)/(mean(watershed_area)*1000^2), # yield in m (m3/m2) 
+    group_by(site_no, year) %>%
+    summarize(discharge_seasonal = sum(X_00060_00000*0.0283168*60*15, na.rm=TRUE), #ft3/s to m3/s to m3/15min
+              yield_seasonal = sum(X_00060_00000*0.0283168*60*15, na.rm=TRUE)/(mean(watershed_area)*1000^2), # yield in m (m3/m2) 
               sum_NA = sum(is.na(X_00060_00000)),
               sum_good = length(grep("A", X_00060_00000_cd))) %>%
-    mutate(days_good = sum_good/(4*24),
-           days_good_frac = sum_good/(4*24)/days_in_month(month))
+    mutate(prop_good = sum_good/(4*24*(30+31+31+30)))
+  
   
   # Calculate baseline (pre-2015) flow duration curve & pull percentile flow stats 
   dat_baseline <- filter(dat, date < "2015-01-01")
@@ -94,10 +104,10 @@ for(g in 1:nrow(gages_dischargeDuration)){
   
   if(g == 1){
     FDC_stats_sites <- FDC_stats 
-    gages_monthlyDischarge <- gages_monthlyDischarge_site
+    gages_seasonalDischarge <- gages_seasonalDischarge_site
   } else {
     FDC_stats_sites <- rbind(FDC_stats_sites, FDC_stats)
-    gages_monthlyDischarge <- rbind(gages_monthlyDischarge, gages_monthlyDischarge_site)
+    gages_seasonalDischarge <- rbind(gages_seasonalDischarge, gages_seasonalDischarge_site)
   }
   
   if(plot_FDC == TRUE){
@@ -123,32 +133,40 @@ for(g in 1:nrow(gages_dischargeDuration)){
 
 # Gage data filtering: keep months < 90% missing data, years <95% missing data,
 # gages with > 10 years baseline 15-min flow data.
-gages_monthlyDischarge$days_good_frac[gages_monthlyDischarge$days_good_frac < 0.90] <- NA
+#gages_monthlyDischarge$days_good_frac[gages_monthlyDischarge$days_good_frac < 0.90] <- NA
 
-# Sum monthly values to total seasonal discharge
-gages_seasonalDischarge <- gages_monthlyDischarge %>%
-  mutate(STAID = site_no) %>%
-  group_by(STAID, year) %>%
-  summarize(discharge_seasonal = sum(discharge_monthly),
-            yield_seasonal = sum(yield_monthly), 
-            sum_NA = sum(is.na(discharge_monthly)),
-            prop_good = sum(days_good)/(30+31+31+30)) %>%
-  filter(prop_good > 0.95) 
+# # Sum monthly values to total seasonal discharge
+# gages_seasonalDischarge <- gages_seasonalDischarge %>%
+#   mutate(STAID = site_no) %>%
+#   group_by(STAID, year) %>%
+#   summarize(discharge_seasonal = sum(discharge_monthly, na.rm=TRUE),
+#             yield_seasonal = sum(yield_monthly, na.rm=TRUE), 
+#             sum_NA = sum(is.na(discharge_monthly)),
+#             prop_good = sum(days_good)/(30+31+31+30)) #%>%
+#   #filter(prop_good > 0.95) 
+
+# Make years with <95% good data NA
+gages_seasonalDischarge <- gages_seasonalDischarge %>%
+  mutate(STAID = str_pad(site_no, width = 8, side = "left", pad = "0"))
+
+discharge_yrs_NA <- which(gages_seasonalDischarge$prop_good < 0.95)
+gages_seasonalDischarge$discharge_seasonal[discharge_yrs_NA] <- NA
+gages_seasonalDischarge$yield_seasonal[discharge_yrs_NA] <- NA
 
 # Make table of coverage stats for min/max year and number of years per gage
-gages_coverage <- gages_seasonalDischarge %>%
+gages_coverage <-  gages_seasonalDischarge %>%
   group_by(STAID) %>%
   summarize(yr_start = min(year),
             yr_end = max(year),
             duration = max(year)-min(year) +1,
-            sum_NA = sum(is.na(discharge_seasonal)),
-            prop_yrs_missing = sum_NA/duration) 
+            yrs_NA = sum(is.na(yield_seasonal)),
+            good_years = duration - yrs_NA,
+            prop_yrs_missing = yrs_NA/duration) 
 
 # Filter gages with fewer than 10 years of baseline data
 gages_seasonalDischarge <- left_join(gages_seasonalDischarge, gages_coverage, by = "STAID") %>%
-  filter(duration > 14) %>%
-  ungroup(gages_seasonalDischarge) %>%
-  mutate(STAID = str_pad(STAID, width = 8, side = "left", pad = "0"))
+  filter(good_years > 13) %>%
+  ungroup(gages_seasonalDischarge) 
 
 gages_monthlyDischarge <- gages_monthlyDischarge %>%
   mutate(STAID = str_pad(site_no, width = 8, side = "left", pad = "0"))
@@ -198,17 +216,12 @@ for(g in 1:nrow(gage_locations)){
 }
 
 # Combine precipitation and discharge data: calculate yield-to-precip ratio
-gages_dischargePrecip <- full_join(gages_seasonalPrecip, gages_seasonalDischarge_hires, 
+gages_dischargePrecip <- full_join(gages_seasonalPrecip, gages_seasonalDischarge, 
                                    by = c("STAID", "year")) %>%
   mutate(prop_precip = yield_seasonal/precip_ann)
 
-gages_monthlyDischargePrecip <- full_join(gages_monthlyPrecip, gages_monthlyDischarge_hires, 
-                                   by = c("STAID", "year", "month")) %>%
-  mutate(prop_precip = yield_monthly/precip_sum) %>%
-  filter(prop_precip < 2)
-
 # Calculate the departures in precipitation & discharge from the 20-year mean (1995-2014)
-dischargePrecip_mean <- gages_dischargePrecip %>%
+dischargePrecip_baselineMean <- gages_dischargePrecip %>%
   filter(year < 2015) %>%
   group_by(STAID) %>%
   summarize(prop_precip_mean = mean(prop_precip, na.rm=TRUE),
@@ -216,11 +229,10 @@ dischargePrecip_mean <- gages_dischargePrecip %>%
             precip_gage_mean = mean(precip_gage, na.rm=TRUE),
             discharge_mean = mean(discharge_seasonal, na.rm=TRUE),
             yield_mean = mean(yield_seasonal, na.rm=TRUE),
-            yieldratio_mean = mean(yield_seasonal/precip_ann, na.rm=TRUE)) %>%
-  filter(prop_precip_mean < 2)
+            yieldratio_mean = mean(yield_seasonal/precip_ann, na.rm=TRUE)) #%>%
+#  filter(prop_precip_mean < 2)
 
-# Yield ratio calculates the departure of mean water yield that is theoretically independent of total precipitation amount 
-dischargePrecip <- left_join(dischargePrecip_mean, gages_dischargePrecip, by = "STAID") %>%
+dischargePrecip <- left_join(dischargePrecip_baselineMean, gages_dischargePrecip, by = "STAID") %>%
   mutate(prop_precip_norm = prop_precip - prop_precip_mean,
          prop_precip_yield = yield_seasonal/precip_ann,
          precip_norm = precip_ann - precip_mean,
@@ -228,12 +240,13 @@ dischargePrecip <- left_join(dischargePrecip_mean, gages_dischargePrecip, by = "
          yield_norm = yield_seasonal - yield_mean,
          yieldratio_norm = yield_seasonal/precip_ann - yieldratio_mean)
 
-allgages_defol_vals <- allgages_defol %>% 
+# Combine yield anomalies with defoliation from Landsat data product
+gages_defol_vals <- allgages_defol %>% 
   filter(STAID %in% unique(dischargePrecip$STAID)) %>% 
   mutate(defol_mean = defol_mean*-1)
 
 dischargePrecip <- dischargePrecip %>% 
-  left_join(allgages_defol_vals, by = c("STAID", "year")) %>% #make defoliation positive (moved out of doing it QGIS)
+  left_join(gages_defol_vals, by = c("STAID", "year")) %>% 
   filter(STAID != '01105880', year >=2015 & year<2018,
          !is.na(yieldratio_norm))  #remove stream gage on cape cod, that is not a single basin
 
