@@ -55,26 +55,14 @@ for(g in 1:nrow(gages_dischargeDuration)){
   
   # Calculate seasonal budgets of discharge for each stream gage x year
   watershed_area <- gages_dischargeDuration[g,]$DRAIN_SQKM
-  # gages_monthlyDischarge_site <- dat %>% 
-  #   filter(month >= start_month & month <= end_month) %>%
-  #   mutate(month_year = paste0(month,"-",year)) %>%
-  #   group_by(site_no, month_year, month, year) %>%
-  #   summarize(discharge_monthly = sum(X_00060_00000*0.0283168*60*15, na.rm=TRUE), #ft3/s to m3/s to m3/15min
-  #             yield_monthly = sum(X_00060_00000*0.0283168*60*15, na.rm=TRUE)/(mean(watershed_area)*1000^2), # yield in m (m3/m2) 
-  #             sum_NA = sum(is.na(X_00060_00000)),
-  #             sum_good = length(grep("A", X_00060_00000_cd))) %>%
-  #   mutate(prop_days_good = sum_good/(4*24),
-  #          prop_good_frac = sum_good/(4*24)/days_in_month(month))
-  
   gages_seasonalDischarge_site <- dat %>% 
     filter(month >= start_month & month <= end_month) %>%
     group_by(site_no, year) %>%
     summarize(discharge_seasonal = sum(X_00060_00000*0.0283168*60*15, na.rm=TRUE), #ft3/s to m3/s to m3/15min
-              yield_seasonal = sum(X_00060_00000*0.0283168*60*15, na.rm=TRUE)/(mean(watershed_area)*1000^2), # yield in m (m3/m2) 
+              yield_seasonal = sum(X_00060_00000*0.0283168*60*15, na.rm=TRUE)/(mean(watershed_area,na.rm=TRUE)*1000^2), # yield in m (m3/m2) 
               sum_NA = sum(is.na(X_00060_00000)),
               sum_good = length(grep("A", X_00060_00000_cd))) %>%
     mutate(prop_good = sum_good/(4*24*(30+31+31+30)))
-  
   
   # Calculate baseline (pre-2015) flow duration curve & pull percentile flow stats 
   dat_baseline <- filter(dat, date < "2015-01-01")
@@ -128,27 +116,12 @@ for(g in 1:nrow(gages_dischargeDuration)){
     dev.off()
   }
 }
-
-# Seasonal Budgets --------------------------------------------------------
-
-# Gage data filtering: keep months < 90% missing data, years <95% missing data,
-# gages with > 10 years baseline 15-min flow data.
-#gages_monthlyDischarge$days_good_frac[gages_monthlyDischarge$days_good_frac < 0.90] <- NA
-
-# # Sum monthly values to total seasonal discharge
-# gages_seasonalDischarge <- gages_seasonalDischarge %>%
-#   mutate(STAID = site_no) %>%
-#   group_by(STAID, year) %>%
-#   summarize(discharge_seasonal = sum(discharge_monthly, na.rm=TRUE),
-#             yield_seasonal = sum(yield_monthly, na.rm=TRUE), 
-#             sum_NA = sum(is.na(discharge_monthly)),
-#             prop_good = sum(days_good)/(30+31+31+30)) #%>%
-#   #filter(prop_good > 0.95) 
+ 
+# format gage station ID (STAID) column 
+gages_seasonalDischarge <- gages_seasonalDischarge %>%
+  mutate(STAID = str_pad(site_no, width = 8, side = "left", pad = "0")) 
 
 # Make years with <95% good data NA
-gages_seasonalDischarge <- gages_seasonalDischarge %>%
-  mutate(STAID = str_pad(site_no, width = 8, side = "left", pad = "0"))
-
 discharge_yrs_NA <- which(gages_seasonalDischarge$prop_good < 0.95)
 gages_seasonalDischarge$discharge_seasonal[discharge_yrs_NA] <- NA
 gages_seasonalDischarge$yield_seasonal[discharge_yrs_NA] <- NA
@@ -168,9 +141,6 @@ gages_seasonalDischarge <- left_join(gages_seasonalDischarge, gages_coverage, by
   filter(good_years > 13) %>%
   ungroup(gages_seasonalDischarge) 
 
-gages_monthlyDischarge <- gages_monthlyDischarge %>%
-  mutate(STAID = str_pad(site_no, width = 8, side = "left", pad = "0"))
- 
 # Load Daymet Precipitation Data ------------------------------------------
 # Load set of stream gage locations (lat, lon) 
 gage_locations <- read.csv("data/gagelocations.csv", header = T) %>%
@@ -194,24 +164,11 @@ for(g in 1:nrow(gage_locations)){
     mutate(STAID = stringr::str_pad(precipitationdata[[g]]$site, width = 8, side = "left", pad = "0"),
            precip_gage = precip_ann*(allgages_defol$DRAIN_SQKM[g]*1000^2)) #m * m2(drainage area) = total m3 precip/gage
   
-  gage_monthlyPrecip <- precipitationdata[[g]]$data %>%
-    mutate(date = (as.Date(paste0(precipitationdata[[g]]$data$year,'-01-01')) + 
-                     precipitationdata[[g]]$data$yday),
-           month = lubridate::month(date)) %>%
-    filter(month >= start_month & month <= end_month) %>%
-    group_by(month, year) %>%
-    summarize(precip_sum = sum(prcp..mm.day.)/1000, #convert mm to m
-              num_na = sum(is.na(prcp..mm.day.))) %>%
-    mutate(STAID = stringr::str_pad(precipitationdata[[g]]$site, width = 8, side = "left", pad = "0"),
-           precip_gage = precip_sum*(allgages_defol$DRAIN_SQKM[g]*1000^2)) #m * m2(drainage area) = m3 precip/gage
-  
   # Aggregate seasonal gage precip into one dataframe
   if(g == 1){
     gages_seasonalPrecip <- gage_seasonalPrecip
-    gages_monthlyPrecip <- gage_monthlyPrecip
   } else {
     gages_seasonalPrecip <- rbind(gages_seasonalPrecip, gage_seasonalPrecip)
-    gages_monthlyPrecip <- rbind(gages_monthlyPrecip, gage_monthlyPrecip)
   }
 }
 
