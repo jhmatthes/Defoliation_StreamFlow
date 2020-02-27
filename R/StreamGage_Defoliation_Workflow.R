@@ -197,12 +197,6 @@ for(g in 1:nrow(gage_locations)){
   }
 }
 
-# Filter precipitation gages to gages in seasonal discharge dataset
-gages_seasonalPrecip <- gages_seasonalPrecip %>%
-  filter(STAID %in% gages_seasonalDischarge_hires$STAID)
-
-gages_monthlyPrecip <- filter(gages_monthlyPrecip, STAID %in% gages_seasonalDischarge_hires$STAID)
-
 # Combine precipitation and discharge data: calculate yield-to-precip ratio
 gages_dischargePrecip <- full_join(gages_seasonalPrecip, gages_seasonalDischarge_hires, 
                                    by = c("STAID", "year")) %>%
