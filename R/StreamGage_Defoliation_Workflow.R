@@ -468,115 +468,45 @@ REF_FDC75 <- lmer(flow_diff ~ defol_mean_pos + (1 | year),
 flow_diff_FDC75_ref <- filter(flow_diff_defol, stat_type == "flow_75", ref_gage == "TRUE")
 flow_diff_FDC75_ref$pred_FDC75 <- predict(REF_FDC75)
 
-
-#Stack Predictions for Graphing 
-temp <- prediction_models_ref %>% 
-  pivot_longer(cols = `flow_50`:`flow_05`, names_to = "stat_type", values_to = "prediction") %>% 
-  mutate(reference_prediction = T) %>% 
-  group_by(STAID, year)
-prediction_models <- prediction_models_all %>% 
-  pivot_longer(cols = `flow_50`:`flow_05`, names_to = "stat_type", values_to = "prediction") %>% 
-  mutate(reference_prediction = F) %>% 
-  group_by(STAID, year) %>% 
-  full_join(temp)
-
-flow_diff_defol <- flow_diff_defol %>% 
-  group_by(STAID, year) %>% 
-  left_join(prediction_models)
-flow_type <- c("25", "50", "75")
-all_plot <- list()
-ref_plot <- list()
-for (i in 1:length(flow_type)) {
-  print(i)
-  all_plot[[i]] <- ggplot(filter(flow_diff_defol, stat_type == paste0('flow_', flow_type[i]), 
-                                                               year > 2015 & year < 2018, reference_prediction == "FALSE")) +
-  geom_point(aes(x = defol_mean_pos, y = flow_diff)) +
-  geom_line(aes( x = defol_mean_pos, y = prediction)) + 
-  facet_wrap(~year) +
-  ylim(c(-100,100)) +
-  labs(x = "Defoliation metric", 
-       y = paste0("% change at ", flow_type[i], " % prob.")) +
-         theme_cowplot()
-       
-  ref_plot[[i]] <- ggplot(filter(flow_diff_defol, stat_type == paste0('flow_', flow_type[i]), 
-                                 year > 2015 & year < 2018,ref_gage == TRUE, reference_prediction == TRUE),
-                          aes(x = defol_mean_pos, y = flow_diff)) +
-         geom_point() +
-         geom_line(aes( x = defol_mean_pos, y = prediction)) + 
-         facet_wrap(~year) +
-         ylim(c(-100,100)) +
-         labs(x = "Defoliation metric", 
-              y = paste0("% change at ", flow_type[i], " % prob.")) +
-         theme_cowplot()
-  } 
-
-plot_grid(ref_plot[[1]], all_plot[[1]],
-          ref_plot[[2]], all_plot[[2]],
-          ref_plot[[3]], all_plot[[3]], nrow = 3)
-
-
-# Plot changes in 5%tile against defoliation, by year
-all_plot_05 <- ggplot(filter(flow_diff_defol, stat_type == "flow_05", 
-                             reference_prediction == F)) + 
-  geom_point(aes( x = defol_mean_pos, y = flow_diff, color = year)) +
-  geom_line(aes(x = defol_mean_pos, y = prediction, color = year), linetype = "solid")+
-  scale_color_manual(values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4", "mediumpurple4"))+
-  #  facet_wrap(~year) +
-  ylim(c(-100,100)) +
-  labs(x = "Defoliation metric", 
-       y = expression(paste("Percent ", Delta, 
-                            " flow at 5% prob."))) +
-  theme_cowplot()+
-  theme(legend.position="none")
-
+# FIG 4: Plot changes in FDC percentiles compared to baseline FDC, all gages
 # Plot changes in 25%tile against defoliation, by year
-all_plot_25 <- ggplot(filter(flow_diff_defol, stat_type == "flow_25", 
-                             reference_prediction == F)) + 
+FIG4A <- ggplot(flow_diff_FDC25) + 
   geom_point(aes( x = defol_mean_pos, y = flow_diff, color = year)) +
-  geom_line(aes(x = defol_mean_pos, y = prediction, color = year), linetype = "solid")+
+  geom_line(aes(x = defol_mean_pos, y = pred_FDC25, color = year), linetype = "solid")+
   scale_color_manual(values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4", "mediumpurple4"))+
-  #  facet_wrap(~year) +
   ylim(c(-100,100)) +
   labs(x = "Defoliation metric", 
-       y = expression(paste("Percent ", Delta, 
-                            " flow at 25% prob."))) +
+       y = expression(paste("Percent ", Delta, " flow at 25% prob."))) +
   theme_cowplot()+
   theme(legend.position="none")
 
 # Plot changes in 50%tile against defoliation, by year
-all_plot_50 <- ggplot(filter(flow_diff_defol, stat_type == "flow_50", 
-                             reference_prediction == F))  + 
+FIG4B <- ggplot(flow_diff_FDC50) + 
   geom_point(aes( x = defol_mean_pos, y = flow_diff, color = year)) +
-  geom_line(aes(x = defol_mean_pos, y = prediction, color = year), linetype = "solid")+
+  geom_line(aes(x = defol_mean_pos, y = pred_FDC50, color = year), linetype = "solid")+
   scale_color_manual(values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4", "mediumpurple4"))+
-  #  facet_wrap(~year) +
   ylim(c(-100,100)) +
-  labs(x = "Defoliation metric", 
-       y = expression(paste("Percent ", Delta, 
-                            " flow at 50% prob."))) +
+  labs(x = "Defoliation metric", y = expression(paste("Percent ", Delta, " flow at 50% prob."))) +
   theme_cowplot()+
   theme(legend.position="none")
-
 
 # Plot changes in 75%tile against defoliation, by year
-all_plot_75 <- ggplot(filter(flow_diff_defol, stat_type == "flow_75", 
-                             reference_prediction == F)) + 
+FIG4C <- ggplot(flow_diff_FDC75) + 
   geom_point(aes( x = defol_mean_pos, y = flow_diff, color = year)) +
-  geom_line(aes(x = defol_mean_pos, y = prediction, color = year), linetype = "dashed")+
+  geom_line(aes(x = defol_mean_pos, y = pred_FDC75, color = year), linetype = "dashed")+
   scale_color_manual(values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4", "mediumpurple4"))+
-  #  facet_wrap(~year) +
   ylim(c(-100,100)) +
-  labs(x = "Defoliation metric", 
-       y = expression(paste("Percent ", Delta, 
-                            " flow at 75% prob."))) +
+  labs(x = "Defoliation metric", y = expression(paste("Percent ", Delta, " flow at 75% prob."))) +
   theme_cowplot()+
   theme(legend.position="none")
 
-ref_pertiles_leg <- get_legend(all_plot_75 + theme(legend.position="bottom"))
-top_row <- cowplot::plot_grid(all_plot_25, all_plot_50, all_plot_75, labels = c("A", "B", "C"), nrow = 1)
+FIG4_leg <- get_legend(FIG4C + theme(legend.position="bottom"))
+FIG4_plots <- cowplot::plot_grid(FIG4A, FIG4B, FIG4C, labels = c("A", "B", "C"), nrow = 1)
 FDC_change_plots <- cowplot::plot_grid(top_row, ref_pertiles_leg, rel_heights = c(1,0.1),
-                              nrow = 2)
-plot_grid(FDC_change_plots, ref_pertiles_leg, ncol = 1, rel_heights = c(1, 0.2))
+                                       nrow = 2)
+plot_grid(FIG4_plots, FIG4_leg, ncol = 1, rel_heights = c(1, 0.2))
+
+#FIGS3: Reference plots FDC percentile changes with defoliation
 
 ref_plot_25 <- ggplot(filter(flow_diff_defol, stat_type == "flow_25", 
                              reference_prediction == T)) + 
