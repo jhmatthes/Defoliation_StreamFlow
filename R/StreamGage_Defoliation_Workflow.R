@@ -217,6 +217,80 @@ dischargePrecip <- dischargePrecip %>%
 
 
 # Plots and Linear Models -----------------------------------------------
+#FIG 2: Seasonal Defoliation Boxplot by Year
+dischargePrecip$ref_gage <- as.factor(dischargePrecip$ref_gage)
+levels(dischargePrecip$ref_gage) <- c("Non-Ref", "Ref")
+FIG2_defol_boxplot <- ggplot(dischargePrecip, aes(as.factor(year), defol_mean, 
+                                             color = as.factor(year), shape = ref_gage, 
+                                             size = ref_gage, group = year)) + 
+  geom_hline(yintercept = 0, lty = 2) + 
+  geom_boxplot(alpha = 0.2, outlier.colour = NA)+ 
+  geom_point( alpha = 0.8, position = "jitter")+
+  scale_size_discrete(range = c(2,3.5), name = NULL, labels = NULL,breaks = NULL) + 
+  scale_color_manual(name = "Year", values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4", "mediumpurple4"))+
+  scale_shape_discrete(name = "Gage class", breaks = c("Non-Ref", "Ref"), labels = c("Non-Reference", "Reference"))+
+  #  facet_wrap(~ref_gage) + 
+  labs(x = "Year", y = "Defoliation Metric")+
+  theme_cowplot()
+
+FIG2_defol_boxplot
+
+#FIG S1: Seasonal Precipitation Boxplot
+FIGS1_precip_boxplot <- ggplot(filter(dischargePrecip, year >=2015),aes(as.factor(year),precip_ann*1000, color = as.factor(year))) +
+  geom_hline(yintercept = mean(filter(dischargePrecip, year < 2015)$precip_mean, na.rm = T), lty = 2) +
+  geom_boxplot(alpha = 0.2, outlier.colour = NA)+
+  geom_point(aes(shape = ref_gage), size = 1.5, alpha = 0.8, position = "jitter")+
+  scale_color_manual(name = "Year", values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4", "mediumpurple4"))+
+  scale_shape_discrete(name = "Class", breaks = c("FALSE", "TRUE"), labels = c("Non-Reference", "Reference"))+
+  labs(x = "Year", y = "Precipitation (mm)")+
+  theme_cowplot()
+
+#Yield Anomaly ~ Defoliation model
+Ymod_all <- lmer(yield_norm ~ defol_mean + (1 | year),
+                 data = dischargePrecip, 
+                 control = lmerControl(optimizer ="Nelder_Mead"))
+summary(Ymod_all)
+dischargePrecip$Ymod_all<- predict(Ymod_all) 
+
+FIG3A_YAnom_Defol <- ggplot(dischargePrecip) +
+  geom_point(aes(x = defol_mean, y = yield_norm, color = as.factor(year))) +
+  geom_line(aes(x = defol_mean, y = Ymod_all, group = as.factor(year), color = as.factor(year)), size = 1, linetype = "solid") +
+  scale_color_manual(values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4", "mediumpurple4"))+
+  labs(x = "Defoliation metric", y = "Water yield anomaly (m)")+
+  theme_cowplot()+
+  theme(legend.position="none")
+
+#Precip Anomaly ~ Defoliation Model
+Precipmod_all <- lmer(precip_norm ~ defol_mean + (1 | year),
+                      data = dischargePrecip)
+dischargePrecip$Precipmod_all<- predict(Precipmod_all) #cannot calculate predictions with both standard errors and random effects
+
+FIG3B_PAnom_Defol <- ggplot(dischargePrecip) +
+  geom_point(aes(x = defol_mean, y = precip_norm, color = as.factor(year))) +
+  geom_line(aes(x = defol_mean, y = Precipmod_all, group = as.factor(year), color = as.factor(year)), size = 1, linetype = "dashed") +
+  scale_color_manual(values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4", "mediumpurple4"))+
+  labs(x = "Defoliation metric", y = "Precipitation anomaly (m)")+
+  theme_cowplot()+
+  theme(legend.position="none")
+
+#Yield:Precip Ratio ~ Defoliation Model
+YPmod_all <- lmer(yieldratio_norm ~ defol_mean + (1 | year),
+                  data = dischargePrecip, control = lmerControl(optimizer ="Nelder_Mead"))
+dischargePrecip$YPmod_all<- predict(YPmod_all) #cannot calculate predictions with both standard errors and random effects
+
+FIG3C_YPRatio_Defol <- ggplot(dischargePrecip) +
+  geom_point(aes(x = defol_mean, y = yieldratio_norm, color = as.factor(year))) +
+  geom_line(aes(x = defol_mean, y = YPmod_all, group = as.factor(year), color = as.factor(year)), size = 1, linetype = "solid") +
+  scale_color_manual(values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4", "mediumpurple4"))+
+  labs(x = "Defoliation metric", y = "Yield:Precip anomaly (m)", col = "Year")+
+  theme_cowplot()+
+  theme(legend.position="none")
+
+FIG3_leg <- get_legend(FIG3C_YPRatio_Defol + theme(legend.position="bottom"))
+
+FIG3_plots <- plot_grid(FIG3A_YAnom_Defol, FIG3B_PAnom_Defol, 
+                        FIG3C_YPRatio_Defol, labels = c("A", "B", "C"), nrow = 1)
+plot_grid(FIG3_plots, FIG3_leg, ncol = 1, rel_heights = c(1.1, 0.2))
 
 ## Code to add in correct model to plots
 #temp dataset to include lmer model predictions (easisest to remove NAs for predicting)
