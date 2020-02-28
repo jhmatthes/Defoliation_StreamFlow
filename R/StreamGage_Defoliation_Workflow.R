@@ -2,11 +2,8 @@
 #   Smith-Tripp, S., A. Griffith, V. Pasquarella, J. H. Matthes, 'Impacts of a 
 #   regional multi-year insect defoliation on seasonal water yield and instantaneous 
 #   streamflow characteristics'.
-# Before running this code, you 
 
-
-# Code for flow duration curves and stats
-library(dataRetrieval) # for downloading stream gage data
+library(dataRetrieval) 
 library(tidyverse) 
 library(lubridate)
 library(daymetr)
@@ -17,6 +14,14 @@ library(lme4)
 source("R/Functions/download_15min_USGSgages.R") # Download USGS gage data
 source("R/Functions/FDC_calc.R") # Calculate FDC curves
 source("R/Functions/FDC_percentiles.R") # Find percentiles on FDC curves
+
+# Make output directory, if not already there, to hold figures & tables
+if(dir.exists("output/")){
+  print("Will export figures and table to output/ folder in this working directory.") 
+} else{
+  dir.create("output/")
+  print("Created output/ folder in this working directory to hold figures and tables.") 
+}
 
 # Load Landsat forest condition assessment product values 
 # for in each subwatershed (HU12 code) that was calculated in QGIS
@@ -34,7 +39,6 @@ download_15min_USGSgages(gages_dischargeDuration)
 # Growing season window: June through September
 start_month <- 6
 end_month <- 9 
-
 
 # Calcculate Seasonal Water Yield ------------------------------------------
 # Plot and save each gage's FDC curve in a PDF file? (IF Y, SET FILE NAME BELOW)
@@ -181,7 +185,9 @@ for(g in 1:nrow(gage_locations)){
 # Combine precipitation and discharge data & calculate yield-to-precip ratio
 gages_dischargePrecip <- left_join(gages_seasonalDischarge, gages_seasonalPrecip,
                                    by = c("STAID", "year")) %>%
-  mutate(prop_precip = yield_seasonal/precip_ann)
+  mutate(yield_seasonal_mm = yield_seasonal*1000,
+         precip_ann_mm = precip_ann*1000,
+         prop_precip = yield_seasonal_mm/precip_ann_mm)
 
 
 # Calculate Anomalies from Baseline Sesaonal Yield & Yield:Precip  --------------------------------------------
@@ -189,21 +195,15 @@ gages_dischargePrecip <- left_join(gages_seasonalDischarge, gages_seasonalPrecip
 dischargePrecip_baselineMean <- gages_dischargePrecip %>%
   filter(year < 2015) %>%
   group_by(STAID) %>%
-  summarize(prop_precip_mean = mean(prop_precip, na.rm=TRUE),
-            precip_mean = mean(precip_ann, na.rm=TRUE),
-            precip_gage_mean = mean(precip_gage, na.rm=TRUE),
-            discharge_mean = mean(discharge_seasonal, na.rm=TRUE),
-            yield_mean = mean(yield_seasonal, na.rm=TRUE),
-            yieldratio_mean = mean(yield_seasonal/precip_ann, na.rm=TRUE)) %>%
+  summarize(precip_mean = mean(precip_ann_mm, na.rm=TRUE),
+            yield_mean = mean(yield_seasonal_mm, na.rm=TRUE),
+            yieldratio_mean = mean(yield_seasonal_mm/precip_ann_mm, na.rm=TRUE)) %>%
   filter(yieldratio_mean < 2)
 
 dischargePrecip <- left_join(dischargePrecip_baselineMean, gages_dischargePrecip, by = "STAID") %>%
-  mutate(prop_precip_norm = prop_precip - prop_precip_mean,
-         prop_precip_yield = yield_seasonal/precip_ann,
-         precip_norm = precip_ann - precip_mean,
-         discharge_norm = discharge_seasonal - discharge_mean,
-         yield_norm = yield_seasonal - yield_mean,
-         yieldratio_norm = yield_seasonal/precip_ann - yieldratio_mean)
+  mutate(precip_norm = precip_ann_mm - precip_mean,
+         yield_norm = yield_seasonal_mm - yield_mean,
+         yieldratio_norm = yield_seasonal_mm/precip_ann_mm - yieldratio_mean)
 
 # Combine yield anomalies with defoliation from Landsat data product
 gages_defol_vals <- allgages_defol %>% 
@@ -213,8 +213,7 @@ gages_defol_vals <- allgages_defol %>%
 dischargePrecip <- dischargePrecip %>% 
   left_join(gages_defol_vals, by = c("STAID", "year")) %>% 
   filter(STAID != '01105880', year >=2015 & year<2018,
-         !is.na(yieldratio_norm))  #remove stream gage on cape cod, that is not a single basin
-
+         !is.na(yieldratio_norm))  #remove stream gage on cape cod that is not a single basin
 
 # Plots and Linear Models -----------------------------------------------
 #FIG 2: Seasonal Defoliation Boxplot by Year
@@ -233,7 +232,9 @@ FIG2_defol_boxplot <- ggplot(dischargePrecip, aes(as.factor(year), defol_mean,
   labs(x = "Year", y = "Defoliation Metric")+
   theme_cowplot()
 
+png("output/FIG2.png", width = 3500, height = 2000, res = 600)
 FIG2_defol_boxplot
+dev.off()
 
 #FIG S1: Seasonal Precipitation Boxplot
 FIGS1_precip_boxplot <- ggplot(filter(dischargePrecip, year >=2015),
@@ -243,8 +244,12 @@ FIGS1_precip_boxplot <- ggplot(filter(dischargePrecip, year >=2015),
   geom_point(aes(shape = ref_gage), size = 1.5, alpha = 0.8, position = "jitter")+
   scale_color_manual(name = "Year", values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4", "mediumpurple4"))+
   scale_shape_discrete(name = "Class", breaks = c("FALSE", "TRUE"), labels = c("Non-Reference", "Reference"))+
-  labs(x = "Year", y = "Precipitation (mm)")+
+  labs(x = "Year", y = "Total seasonal precipitation (mm)")+
   theme_cowplot()
+
+png("output/FIGS1.png", width = 3500, height = 2000, res = 600)
+FIGS1_precip_boxplot
+dev.off()
 
 #Yield Anomaly ~ Defoliation model
 Ymod_all <- lmer(yield_norm ~ defol_mean + (1 | year),
@@ -257,7 +262,7 @@ FIG3A_YAnom_Defol <- ggplot(dischargePrecip) +
   geom_point(aes(x = defol_mean, y = yield_norm, color = as.factor(year))) +
   geom_line(aes(x = defol_mean, y = Ymod_all, group = as.factor(year), color = as.factor(year)), size = 1, linetype = "solid") +
   scale_color_manual(values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4", "mediumpurple4"))+
-  labs(x = "Defoliation metric", y = "Water yield anomaly (m)")+
+  labs(x = "Defoliation metric", y = "Water yield anomaly (mm)")+
   theme_cowplot()+
   theme(legend.position="none")
 
@@ -267,11 +272,11 @@ Precipmod_all <- lmer(precip_norm ~ defol_mean + (1 | year),
 dischargePrecip$Precipmod_all<- predict(Precipmod_all) 
 
 FIG3B_PAnom_Defol <- ggplot(dischargePrecip) +
-  geom_point(aes(x = defol_mean, y = precip_norm, color = as.factor(year))) +
-  geom_line(aes(x = defol_mean, y = Precipmod_all, group = as.factor(year), 
+  geom_point(aes(x = defol_mean, y = precip_norm*1000, color = as.factor(year))) +
+  geom_line(aes(x = defol_mean, y = Precipmod_all*1000, group = as.factor(year), 
                 color = as.factor(year)), size = 1, linetype = "dashed") +
   scale_color_manual(values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4", "mediumpurple4"))+
-  labs(x = "Defoliation metric", y = "Precipitation anomaly (m)")+
+  labs(x = "Defoliation metric", y = "Precipitation anomaly (mm)")+
   theme_cowplot()+
   theme(legend.position="none")
 
@@ -281,11 +286,11 @@ YPmod_all <- lmer(yieldratio_norm ~ defol_mean + (1 | year),
 dischargePrecip$YPmod_all<- predict(YPmod_all) 
 
 FIG3C_YPRatio_Defol <- ggplot(dischargePrecip) +
-  geom_point(aes(x = defol_mean, y = yieldratio_norm, color = as.factor(year))) +
-  geom_line(aes(x = defol_mean, y = YPmod_all, group = as.factor(year), color = as.factor(year)), 
+  geom_point(aes(x = defol_mean, y = yieldratio_norm*1000, color = as.factor(year))) +
+  geom_line(aes(x = defol_mean, y = YPmod_all*1000, group = as.factor(year), color = as.factor(year)), 
             size = 1, linetype = "solid") +
   scale_color_manual(values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4", "mediumpurple4"))+
-  labs(x = "Defoliation metric", y = "Yield:Precip anomaly (m)", col = "Year")+
+  labs(x = "Defoliation metric", y = "Yield:Precip anomaly (mm)", col = "Year")+
   theme_cowplot()+
   theme(legend.position="none")
 
@@ -293,8 +298,10 @@ FIG3_leg <- get_legend(FIG3C_YPRatio_Defol + theme(legend.position="bottom"))
 
 FIG3_plots <- plot_grid(FIG3A_YAnom_Defol, FIG3B_PAnom_Defol, 
                         FIG3C_YPRatio_Defol, labels = c("A", "B", "C"), nrow = 1)
-plot_grid(FIG3_plots, FIG3_leg, ncol = 1, rel_heights = c(1.1, 0.2))
 
+png("output/FIG3.png", width = 7000, height = 2500, res = 600)
+plot_grid(FIG3_plots, FIG3_leg, ncol = 1, rel_heights = c(1.1, 0.2))
+dev.off()
 
 # REF GAGES ONLY: Yield anomaly, precip anomaly, yield:precip anomaly
 # Filter just to reference gages
@@ -307,11 +314,11 @@ dischargePrecip_ref$Ymod_ref<- predict(Ymod_ref)
 
 # Ref gages: Yield anomaly ~ Defol
 FIGS2A <- ggplot(dischargePrecip_ref) +
-  geom_point(aes(x = defol_mean, y = yield_norm, color = as.factor(year))) +
-  geom_line(aes(x = defol_mean, y = Ymod_ref, group = as.factor(year), 
+  geom_point(aes(x = defol_mean, y = yield_norm*1000, color = as.factor(year))) +
+  geom_line(aes(x = defol_mean, y = Ymod_ref*1000, group = as.factor(year), 
                 color = as.factor(year)), size = 1, linetype = "solid") +
   scale_color_manual(values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4", "mediumpurple4"))+
-  labs(x = "Defoliation metric", y = "Water yield anomaly (m)")+
+  labs(x = "Defoliation metric", y = "Water yield anomaly (mm)")+
   theme_cowplot()+
   theme(legend.position="none")
 
@@ -345,7 +352,10 @@ FIGS2C <- ggplot(dischargePrecip_ref) +
 
 FIGS2_leg <- get_legend(FIGS2C + theme(legend.position="bottom"))
 FIGS2_plots <- plot_grid(FIGS2A, FIGS2B, FIGS2C, labels = c("A", "B", "C"), nrow = 1)
+
+png("output/FIGS2.png", width = 7000, height = 2500, res = 600)
 plot_grid(FIGS2_plots, FIGS2_leg, ncol = 1, rel_heights = c(1, 0.2))
+dev.off()
 
 # Bind together model stats for output table 
 year_effects <- data.frame(data = rep(c(rep("All",3),rep("Ref Only",3)),2),
@@ -368,10 +378,10 @@ year_effects <- data.frame(data = rep(c(rep("All",3),rep("Ref Only",3)),2),
                                                    rep(sqrt(diag(vcov(YPmod_all)))[2],3), 
                                                    rep(sqrt(diag(vcov(YPmod_ref)))[2],3)),2))
 
-#write.csv(year_effects, file = "year_effects_inteceptmodel.csv", row.names=FALSE)
+write.csv(year_effects, file = "output/Table1_YieldDefol_lmer.csv", row.names=FALSE)
 
 
-# FLOW DURATION CURVE STATISTICS ------------------------------------------
+# Calculate Flow Duration Curve 2015-2017 baseline departures ------------------------------------------
 # Clean up FDC stats by site
 FDC_stats_sites <- mutate(FDC_stats_sites, year = datasub)
 FDC_stats_sites <- as_tibble(FDC_stats_sites)
@@ -501,7 +511,10 @@ FIG4C <- ggplot(flow_diff_FDC75) +
 FIG4_leg <- get_legend(FIG4C + theme(legend.position="bottom"))
 FIG4_plots <- cowplot::plot_grid(FIG4A, FIG4B, FIG4C, 
                                  labels = c("A", "B", "C"), nrow = 1)
+
+png("output/FIG4.png", width = 7000, height = 2500, res = 600)
 plot_grid(FIG4_plots, FIG4_leg, ncol = 1, rel_heights = c(1, 0.2))
+dev.off()
 
 # FIGS3: Reference plots FDC percentile changes with defoliation
 # Plot changes in 25%tile against defoliation, by year
@@ -512,7 +525,7 @@ FIGS3A <- ggplot(flow_diff_FDC25_ref) +
   ylim(c(-100,100)) +
   labs(x = "Defoliation metric", 
        y = expression(paste("Percent ", Delta, " flow at 25% prob."))) +
-  theme_cowplot()+
+  theme_cowplot() +
   theme(legend.position="none")
 
 # Plot changes in 50%tile against defoliation, by year
@@ -538,7 +551,10 @@ FIGS3C <- ggplot(flow_diff_FDC75_ref) +
 FIGS3_leg <- get_legend(FIGS3C + theme(legend.position="bottom"))
 FIGS3_plots <- cowplot::plot_grid(FIGS3A, FIGS3B, FIGS3C, 
                                   labels = c("A", "B", "C"), nrow = 1)
+
+png("output/FIGS3.png", width = 7000, height = 2500, res = 600)
 plot_grid(FIGS3_plots, FIGS3_leg, ncol = 1, rel_heights = c(1, 0.2))
+dev.off()
 
 # Make table of FDC change ~ defol model output parameters
 FDC_25_stats <- data.frame(data = rep(c(rep("All",3),rep("Ref Only",3))),
@@ -578,4 +594,4 @@ FDC_75_stats <- data.frame(data = rep(c(rep("All",3),rep("Ref Only",3))),
                            stat_type = rep("75tile",6))
 
 FDC_lm_stats <- rbind(FDC_25_stats, FDC_50_stats) #drop 75 stats here because p > 0.05
-#write.csv(FDC_lm_stats, file = "FDC_lm_stats.csv")
+write.csv(FDC_lm_stats, file = "output/Table2_FDCDefol_lmer.csv")
