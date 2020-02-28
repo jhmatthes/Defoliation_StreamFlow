@@ -255,7 +255,6 @@ dev.off()
 Ymod_all <- lmer(yield_norm ~ defol_mean + (1 | year),
                  data = dischargePrecip, 
                  control = lmerControl(optimizer ="Nelder_Mead"))
-summary(Ymod_all)
 dischargePrecip$Ymod_all<- predict(Ymod_all) 
 
 FIG3A_YAnom_Defol <- ggplot(dischargePrecip) +
@@ -272,8 +271,8 @@ Precipmod_all <- lmer(precip_norm ~ defol_mean + (1 | year),
 dischargePrecip$Precipmod_all<- predict(Precipmod_all) 
 
 FIG3B_PAnom_Defol <- ggplot(dischargePrecip) +
-  geom_point(aes(x = defol_mean, y = precip_norm*1000, color = as.factor(year))) +
-  geom_line(aes(x = defol_mean, y = Precipmod_all*1000, group = as.factor(year), 
+  geom_point(aes(x = defol_mean, y = precip_norm, color = as.factor(year))) +
+  geom_line(aes(x = defol_mean, y = Precipmod_all, group = as.factor(year), 
                 color = as.factor(year)), size = 1, linetype = "dashed") +
   scale_color_manual(values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4", "mediumpurple4"))+
   labs(x = "Defoliation metric", y = "Precipitation anomaly (mm)")+
@@ -286,8 +285,8 @@ YPmod_all <- lmer(yieldratio_norm ~ defol_mean + (1 | year),
 dischargePrecip$YPmod_all<- predict(YPmod_all) 
 
 FIG3C_YPRatio_Defol <- ggplot(dischargePrecip) +
-  geom_point(aes(x = defol_mean, y = yieldratio_norm*1000, color = as.factor(year))) +
-  geom_line(aes(x = defol_mean, y = YPmod_all*1000, group = as.factor(year), color = as.factor(year)), 
+  geom_point(aes(x = defol_mean, y = yieldratio_norm, color = as.factor(year))) +
+  geom_line(aes(x = defol_mean, y = YPmod_all, group = as.factor(year), color = as.factor(year)), 
             size = 1, linetype = "solid") +
   scale_color_manual(values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4", "mediumpurple4"))+
   labs(x = "Defoliation metric", y = "Yield:Precip anomaly (mm)", col = "Year")+
@@ -314,8 +313,8 @@ dischargePrecip_ref$Ymod_ref<- predict(Ymod_ref)
 
 # Ref gages: Yield anomaly ~ Defol
 FIGS2A <- ggplot(dischargePrecip_ref) +
-  geom_point(aes(x = defol_mean, y = yield_norm*1000, color = as.factor(year))) +
-  geom_line(aes(x = defol_mean, y = Ymod_ref*1000, group = as.factor(year), 
+  geom_point(aes(x = defol_mean, y = yield_norm, color = as.factor(year))) +
+  geom_line(aes(x = defol_mean, y = Ymod_ref, group = as.factor(year), 
                 color = as.factor(year)), size = 1, linetype = "solid") +
   scale_color_manual(values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4", "mediumpurple4"))+
   labs(x = "Defoliation metric", y = "Water yield anomaly (mm)")+
@@ -332,7 +331,7 @@ FIGS2B <- ggplot(dischargePrecip_ref) +
   geom_line(aes(x = defol_mean, y = Precipmod_ref, group = as.factor(year), 
                 color = as.factor(year)), size = 1, linetype = "dashed") +
   scale_color_manual(values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4", "mediumpurple4"))+
-  labs(x = "Defoliation metric", y = "Precipitation anomaly (m)")+
+  labs(x = "Defoliation metric", y = "Precipitation anomaly (mm)")+
   theme_cowplot()+
   theme(legend.position="none")
 
@@ -346,7 +345,7 @@ FIGS2C <- ggplot(dischargePrecip_ref) +
   geom_line(aes(x = defol_mean, y = YPmod_ref, group = as.factor(year), 
                 color = as.factor(year)), size = 1, linetype = "solid") +
   scale_color_manual(values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4", "mediumpurple4"))+
-  labs(x = "Defoliation metric", y = "Yield:Precip anomaly (m)", col = 'Year')+
+  labs(x = "Defoliation metric", y = "Yield:Precip anomaly (mm)", col = 'Year')+
   theme_cowplot()+
   theme(legend.position="none")
 
@@ -364,19 +363,19 @@ year_effects <- data.frame(data = rep(c(rep("All",3),rep("Ref Only",3)),2),
                            intercept = signif(c(coef(Ymod_all)$year[,1],
                                                coef(Ymod_ref)$year[,1],
                                                coef(YPmod_all)$year[,1],
-                                               coef(YPmod_ref)$year[,1]),2),
+                                               coef(YPmod_ref)$year[,1]),3),
                            std_err_intercept = signif(c(rep(sqrt(diag(vcov(Ymod_all)))[1],3), 
                                              rep(sqrt(diag(vcov(Ymod_ref)))[1],3), 
                                              rep(sqrt(diag(vcov(YPmod_all)))[1],3), 
-                                             rep(sqrt(diag(vcov(YPmod_ref)))[1],3)),2),
+                                             rep(sqrt(diag(vcov(YPmod_ref)))[1],3)),3),
                            slope = signif(c(coef(Ymod_all)$year[,2],
                                            coef(Ymod_ref)$year[,2],
                                            coef(YPmod_all)$year[,2],
-                                           coef(YPmod_all)$year[,2]),2), 
+                                           coef(YPmod_all)$year[,2]),3), 
                            std_err_slope = signif(c(rep(sqrt(diag(vcov(Ymod_all)))[2],3), 
                                                    rep(sqrt(diag(vcov(Ymod_ref)))[2],3), 
                                                    rep(sqrt(diag(vcov(YPmod_all)))[2],3), 
-                                                   rep(sqrt(diag(vcov(YPmod_ref)))[2],3)),2))
+                                                   rep(sqrt(diag(vcov(YPmod_ref)))[2],3)),3))
 
 write.csv(year_effects, file = "output/Table1_YieldDefol_lmer.csv", row.names=FALSE)
 
