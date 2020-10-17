@@ -3,6 +3,6 @@
 .RData
 .Ruserdata
 .DS_Store
-Gage_Data/
+data/Gage_Data/
 output/
-Icon
+*Icon
