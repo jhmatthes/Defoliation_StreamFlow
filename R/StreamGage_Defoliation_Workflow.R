@@ -40,7 +40,7 @@ download_15min_USGSgages(gages_dischargeDuration)
 start_month <- 6
 end_month <- 9 
 
-# Calcculate Seasonal Water Yield ------------------------------------------
+# Calculate Seasonal Water Yield ------------------------------------------
 # Plot and save each gage's FDC curve in a PDF file? (IF Y, SET FILE NAME BELOW)
 plot_FDC <- FALSE
 
