@@ -2,7 +2,7 @@
 
 This code is associated with the publication: Smith-Tripp, S., A. Griffith, V. Pasquarella, J.H. Matthes. TBD. Impacts of a regional multi-year insect defoliation event on seasonal runoff ratios and instantaneous streamflow characteristics. In Review.
 
-This analysis assesses the connection between defoliation in southern New England during a 2015-2017 outbreak of gypsy moth (*Lymantria dispar*) caterpillars and growing season (June-September) anomalies in water yield, the yield-to-precipitation ratio, and instaneous streamflow characterics from flow duration curves.
+This analysis assesses the connection between defoliation in southern New England during a 2015-2017 outbreak of gypsy moth (*Lymantria dispar*) caterpillars and growing season (June-September) anomalies in watershed runoff ratio, water yield, and instaneous streamflow characterics derived from gage-specific flow duration curves.
 
 The code is organized by: 
 1. Load defoliation values extracted for 2015-2017 by overlaying sub-watershed shapefiles on Landsat data product. 
