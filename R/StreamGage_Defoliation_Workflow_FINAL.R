@@ -14,6 +14,7 @@ library(lme4)
 library(lmerTest)
 
 # Load the flow duration curve functions
+source("R/Functions/download_15min_USGSgages.R") # Download high-res 15-min gage data
 source("R/Functions/FDC_calc.R") # Calculate FDC curves
 source("R/Functions/FDC_percentiles.R") # Find percentiles on FDC curves
 
@@ -53,53 +54,37 @@ names(gages_nondups)[name_cols] <- paste0(as.character(substr(names(gages_nondup
 gages_defol <- tidyr::gather(gages_nondups, key = "year", value = "defol_mean", `2015mean`:`2017mean`) 
 gages_defol$year <- as.numeric(substr(gages_defol$year,1,4))
 gages_defol <- dplyr::rename(gages_defol, ref_gage = CLASS) 
+
+# Load table with info for the stream gages that had good 15-min data 
+gages_goodDischargeDuration <- readr::read_csv("data/streamGagesCoverage_v2.csv") 
+
+# Filter all subwatersheds by those with good gage data
+gages_defol <- dplyr::filter(gages_defol, STAID %in% gages_goodDischargeDuration$STAID)
 gages_STAID <- data.frame(STAID = unique(gages_defol$STAID), 
                           DRAIN_SQKM = unique(gages_defol$DRAIN_SQKM)) %>%
   dplyr::arrange(STAID)
 
+# Load table with info for the stream gages that had 15-min data 
+gages_goodDischargeDuration <- readr::read_csv("data/gagelocations_v2.csv") %>%
+  dplyr::left_join(filter(gages_STAID)) 
 
-# #### Code used to download the 15-min instantaneous stream gage data
-#  # Download 15-minute instantaneous discharge USGS stream gage data (just run once!)
-# start_date <- "05-31"
-# end_date <- "11-01"
-# 
-# for(g in 1:nrow(gages_dischargeDuration)){
-#    years <- gages_dischargeDuration$yr_start[g]:gages_dischargeDuration$yr_end[g]
-#   
-#    for(y in 1:length(years)){
-# 
-#      tmp_yr <- readNWISuv(gages_dischargeDuration$STAID[g],
-#                           parameterCd =  "00060",
-#                           startDate = paste0(years[y],"-",start_date),
-#                           endDate = paste0(years[y],"-",end_date))
-#      
-#      if(nrow(tmp_yr)!=0){
-#        if(y == 1){
-#          site_yrs <- tmp_yr
-#        } else {
-#          site_yrs <- rbind(site_yrs, tmp_yr)
-#        }
-#      }
-#    }
-#    write_csv(site_yrs, paste0("data/discharge_15min/",
-#                               gages_dischargeDuration$STAID[g],"_15min.csv"))
-# }
-
-# Plot and save each gage's FDC curve in a PDF file? (NEED TO SET FILE NAME BELOW)
-plot_FDC <- FALSE
-
-# Window for calculating growing season metrics
-start_month <- 6
-end_month <- 9 
+# Download 15-min USGS gage data for 1995-2017 to local data/Gage_Data directory
+# This may take awhile (1-2 hours) depending on download speeds and for this analysis
+# will take up about ~2GB of space. 
+#download_15min_USGSgages(gages_goodDischargeDuration)
 
 # Load and process 15-minute instantaneous stream gage data (previously downloaded locally):
 # Aggregate data for seasonal budgets & calculate statistics for flow duration curves
+plot_FDC <- FALSE # Plot & save each gage's FDC curve in a PDF file? (set file path below)
+start_month <- 6
+end_month <- 9 
+
 for(g in 1:length(gages_STAID$STAID)){
   
   print(paste0("Working on ",g))
   
   # Read 15-min gage discharge data
-  dat <- read.csv(paste0("../Gage_Data/discharge_15min/",gages_STAID$STAID[g],"_15min.csv"), header=T) 
+  dat <- read.csv(paste0("data/Gage_Data/",gages_STAID$STAID[g],"_15min.csv"), header=T) 
   dat <- tidyr::separate(dat, dateTime, into = c("date","time"), sep = "T", remove = F) 
   dat$time <- substr(dat$time,1,8)
   dat <- dplyr::mutate(dat, date = as.Date(date, format = "%Y-%m-%d"),
@@ -139,10 +124,6 @@ for(g in 1:length(gages_STAID$STAID)){
   FDC_2017 <- FDC_calc(dat_2017$X_00060_00000*0.0283168, baseline = T) #ft3/s to m3/s
   F2017_stats <- FDC_pertiles(FDC_2017, gages_STAID$STAID[g], "2017")
   
-  #dat_2018 <- filter(dat, date >= "2018-01-01" & date <= "2018-12-31")
-  #FDC_2018 <- FDC_calc(dat_2018$X_00060_00000*0.0283168, baseline = T) #ft3/s to m3/s
-  #F2018_stats <- FDC_pertiles(FDC_2018, gages_dischargeDuration$STAID[g], "2018")
-  
   # Combine all FDC stats for this site
   FDC_stats <- rbind(baseline_stats, F2015_stats, F2016_stats, F2017_stats)
   
@@ -155,7 +136,7 @@ for(g in 1:length(gages_STAID$STAID)){
   }
   
   if(plot_FDC == TRUE){
-    pdf(paste0("FDC_plot_",dat$site_no[g],".pdf"))
+    pdf(paste0("FDC_plots/FDC_plot_",dat$site_no[g],".pdf"))
     p1 <- ggplot2::ggplot(baseline) +
       ggplot2::geom_line(ggplot2::aes(x = exceed, y = q_dis)) +
       ggplot2::geom_hline(yintercept = median(baseline$exceed), lty=2) +
@@ -203,14 +184,12 @@ gages_seasonalDischarge <- dplyr::left_join(gages_seasonalDischarge, gages_cover
 
 # Load Daymet Precipitation Data ------------------------------------------
 # Load set of stream gage locations (lat, lon) 
-gage_locations <- read.csv("../Gage_Data/gagelocations.csv", header = T) %>%
+gage_locations <- read.csv("data/gagelocations_v2.csv", header = T) %>%
   dplyr::mutate(STAID_string = stringr::str_pad(STAID, width = 8, side = "left", pad = "0")) %>%
   dplyr::filter(STAID_string %in% gages_defol$STAID) 
 
-readr::write_csv(gage_locations,"../Gage_Data/gagelocations_v2.csv")
-
 # Download Daymet data at the USGS stream gage locaitons
-precipitationdata <- daymetr::download_daymet_batch(file_location = "../Gage_Data/gagelocations_v2.csv",
+precipitationdata <- daymetr::download_daymet_batch(file_location = "data/gagelocations_v2.csv",
                                                 start = 1995, end = 2017, internal = T, silent = F)
 
 # Calculate seasonal Daymet precipitation at each stream gage
@@ -226,17 +205,6 @@ for(g in 1:nrow(gage_locations)){
     dplyr::mutate(STAID = stringr::str_pad(precipitationdata[[g]]$site, width = 8, side = "left", pad = "0"),
            precip_gage = precip_ann*(gages_STAID$DRAIN_SQKM[g]*1000^2)) #m * m2(drainage area) = total m3 precip/gage
   
-  # gage_monthlyPrecip <- precipitationdata[[g]]$data %>%
-  #   dplyr::mutate(date = (as.Date(paste0(precipitationdata[[g]]$data$year,'-01-01')) + 
-  #                    precipitationdata[[g]]$data$yday),
-  #          month = lubridate::month(date)) %>%
-  #   dplyr::filter(month >= start_month & month <= end_month) %>%
-  #   dplyr::group_by(month, year) %>%
-  #   dplyr::summarize(precip_sum = sum(prcp..mm.day.)/1000, #convert mm to m
-  #             num_na = sum(is.na(prcp..mm.day.))) %>%
-  #   dplyr::mutate(STAID = stringr::str_pad(precipitationdata[[g]]$site, width = 8, side = "left", pad = "0"),
-  #          precip_gage = precip_sum*(gages_STAID$DRAIN_SQKM[g]*1000^2)) #m * m2(drainage area) = m3 precip/gage
-  # 
   # Aggregate seasonal gage precip into one dataframe
   if(g == 1){
     gages_seasonalPrecip <- gage_seasonalPrecip
@@ -280,7 +248,7 @@ dischargePrecip <- dischargePrecip %>%
                 !is.na(runoff_ratio_anom))  #remove stream gage on cape cod, that is not a single basin
 
 # Plots and Linear Models -----------------------------------------------
-# FIG 2: Yearly Defoliation Boxplot
+# FIG 2: Defoliation Boxplot x Year with Ref/Non-Ref gages marked
 dischargePrecip$ref_gage <- as.factor(dischargePrecip$ref_gage)
 levels(dischargePrecip$ref_gage) <- c("Non-Ref", "Ref")
 #png("figures/FIG2.png", width = 4000, height = 2500, res = 600)
@@ -299,14 +267,14 @@ defol_boxplot <- ggplot(dischargePrecip, aes(as.factor(year), defol_mean,
 defol_boxplot
 #dev.off()
 
-# SUPP: Yearly Precipitation Boxplot
+# SUPP: Yearly Precipitation Boxplot x Year with Ref/Non-Ref gages marked
 #png("figures/SuppPrecip.png", width = 4000, height = 2500, res = 600)
 precip_boxplot <- ggplot(dplyr::filter(dischargePrecip, year >=2015),
                          aes(as.factor(year),precip_ann*1000, color = as.factor(year)))+
   geom_hline(yintercept = mean(dischargePrecip_mean$precip_mean)*1000, lty = 2) + 
   geom_boxplot(alpha = 0.2, outlier.colour = NA, show.legend=FALSE)+
   geom_point(aes(shape = ref_gage), size = 1.5, alpha = 0.8, position = "jitter")+
-  scale_color_manual(name = "Year", values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4", "mediumpurple4"))+
+  scale_color_manual(name = "Year", values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4"))+
   scale_shape_discrete(name = "Gage class", breaks = c("Non-Ref", "Ref"), labels = c("Non-Reference", "Reference"))+
   labs(x = "Year", y = "Precipitation (mm)")+
   cowplot::theme_cowplot()
@@ -317,7 +285,6 @@ precip_boxplot
 YPmod_all <- lmer(runoff_ratio_anom ~ defol_mean + (1 | year),
                   data = dischargePrecip, control = lmerControl(optimizer ="Nelder_Mead"))
 summary(YPmod_all)
-#YPmod_all_residuals = residuals(YPmod_all)
 dischargePrecip$YPmod_all<- predict(YPmod_all) 
 
 RunoffRatio_All <- ggplot(dischargePrecip) +
@@ -350,7 +317,6 @@ RunoffRatio_Ref <- ggplot(ref_dischargePrecip) +
 
 RunoffRatio_leg <- cowplot::get_legend(RunoffRatio_All + theme(legend.position="bottom"))
 RunoffRatio_Plot <- cowplot::plot_grid(RunoffRatio_All, RunoffRatio_Ref, labels = c("A", "B"))
-
 RunoffRatio_Plot_Leg <- cowplot::plot_grid(RunoffRatio_Plot, RunoffRatio_leg, ncol = 1, rel_heights = c(1.1, 0.2))
 #cowplot::ggsave2(filename = paste0(getwd(), "/figures/FIG3.png"), RunoffRatio_Plot_Leg,  width = 7.5, height = 4, dpi = 600)
 #dev.off()
@@ -367,13 +333,47 @@ RRAnoms_YReffects <- data.frame(data = c(rep("All", 3),rep("Ref Only", 3)),
                                            coef(YPmod_ref)$year[,2]),2), 
                            std_err_slope = signif(c(rep(sqrt(diag(vcov(YPmod_all)))[2],3), 
                                                    rep(sqrt(diag(vcov(YPmod_ref)))[2],3)),2))
-
 #write.csv(RRAnoms_YReffects, file = "figures/year_effects_inteceptmodel.csv")
+
+## SUPP: Yield Anomaly ~ Defoliation and Precip Anomaly ~ Defoliation
+Ymod_all <- lmer(yield_anom ~ defol_mean + (1 | year),
+                 data = dischargePrecip, 
+                 control = lmerControl(optimizer ="Nelder_Mead"))
+summary(Ymod_all)
+dischargePrecip$Ymod_all<- predict(Ymod_all)
+
+# Plot water yield anomalies ~ defoliation, w/ year random intercept
+all_yieldanom <- ggplot(dischargePrecip) +
+  geom_point(aes(x = defol_mean, y = yield_anom, color = as.factor(year))) +
+  geom_line(aes(x = defol_mean, y = Ymod_all, group = as.factor(year), color = as.factor(year)), size = 1, linetype = "solid") +
+  scale_color_manual(name = "Year",values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4"))+
+  labs(x = "Defoliation metric", y = "Water yield anomaly (m)")+
+  cowplot::theme_cowplot()+
+  theme(legend.position="none")
+
+#Precip Anomaly Model
+Precipmod_all <- lmer(precip_anom ~ defol_mean + (1 | year),
+                      data = dischargePrecip)
+summary(Precipmod_all)
+dischargePrecip$Precipmod_all<- predict(Precipmod_all) 
+
+all_precipanom <- ggplot(dischargePrecip) +
+  geom_point(aes(x = defol_mean, y = precip_anom, color = as.factor(year))) +
+  geom_line(aes(x = defol_mean, y = Precipmod_all, group = as.factor(year), color = as.factor(year)), size = 1, linetype = "dashed") +
+  scale_color_manual(values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4", "mediumpurple4"))+
+  labs(x = "Defoliation metric", y = "Precipitation anomaly (m)")+
+  cowplot::theme_cowplot()+
+  theme(legend.position="none")
+
+YieldPrecip_leg <- cowplot::get_legend(all_yieldanom + theme(legend.position="bottom"))
+YieldPrecip_plots <- cowplot::plot_grid(all_yieldanom, all_precipanom, labels = c("A", "B", "C"), nrow = 1)
+#png("figures/SUPP_REFYanomPanom.png", width = 4000, height = 2500, res = 600)
+cowplot::plot_grid(YieldPrecip_plots, YieldPrecip_leg, ncol = 1, rel_heights = c(1.1, 0.2))
+#dev.off()
 
 # FLOW DURATION CURVE STATISTICS ------------------------------------------
 # Clean up FDC stats by site
 FDC_stats_sites <- dplyr::mutate(FDC_stats_sites, year = datasub)
-#FDC_stats_sites <- as_tibble(FDC_stats_sites)
 
 # Calculate FDC defoliation year departure from baseline stats
 FDC_discharge <- dplyr::filter(FDC_stats_sites, FDC_type == "discharge")
@@ -592,83 +592,6 @@ FDC_25_stats <- data.frame(data = rep(c(rep("All",3),rep("Ref Only",3))),
                            stat_type = rep("25tile",6))
 FDC_lm_stats <- rbind(FDC_25_stats, FDC_50_stats) #drop 75 stats here because the model is not well supported
 #write.csv(FDC_lm_stats, file = "figures/FDC_lm_stats_int.csv")
-
-
-# # SUPP: Yield Anomaly ~ Defoliation, Precip Anomaly ~ Defoliation
-dischargePrecip <- filter(dischargePrecip, !is.na(defol_mean))
-Ymod_all <- lmer(yield_anom ~ defol_mean + (1 | year),
-                  data = dischargePrecip, 
-                  control = lmerControl(optimizer ="Nelder_Mead"))
-summary(Ymod_all)
-dischargePrecip$Ymod_all<- predict(Ymod_all)
- 
-# Plot water yield anomalies ~ defoliation, w/ year random intercept
-all_yieldanom <- ggplot(dischargePrecip) +
-   geom_point(aes(x = defol_mean, y = yield_anom, color = as.factor(year))) +
-   geom_line(aes(x = defol_mean, y = Ymod_all, group = as.factor(year), color = as.factor(year)), size = 1, linetype = "solid") +
-   scale_color_manual(name = "Year",values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4"))+
-   labs(x = "Defoliation metric", y = "Water yield anomaly (m)")+
-   cowplot::theme_cowplot()+
-   theme(legend.position="none")
- 
-#Precip Anomaly Model
-Precipmod_all <- lmer(precip_anom ~ defol_mean + (1 | year),
-                       data = dischargePrecip)
-summary(Precipmod_all)
-dischargePrecip$Precipmod_all<- predict(Precipmod_all) 
- 
-all_precipanom <- ggplot(dischargePrecip) +
-   geom_point(aes(x = defol_mean, y = precip_anom, color = as.factor(year))) +
-   geom_line(aes(x = defol_mean, y = Precipmod_all, group = as.factor(year), color = as.factor(year)), size = 1, linetype = "dashed") +
-   scale_color_manual(values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4", "mediumpurple4"))+
-   labs(x = "Defoliation metric", y = "Precipitation anomaly (m)")+
-   cowplot::theme_cowplot()+
-   theme(legend.position="none")
- 
-all_3_leg <- cowplot::get_legend(all_yieldanom + theme(legend.position="bottom"))
-allgages_plots <- cowplot::plot_grid(all_yieldanom, all_precipanom, labels = c("A", "B", "C"), nrow = 1)
-#png("figures/SUPP_REFYanomPanom.png", width = 4000, height = 2500, res = 600)
-cowplot::plot_grid(allgages_plots, all_3_leg, ncol = 1, rel_heights = c(1.1, 0.2))
-#dev.off()
-
-# # REF GAGES ONLY: Yield anomaly, precip anomaly, yield:precip anomaly
-# # Filter just to reference gages
-# ref_dischargePrecip <- filter(dischargePrecip, ref_gage == "Ref")
-# 
-# # ref GAGES: Yield anomaly, precip anomaly, yield:precip anomaly
-# Ymod_ref <- lmer(yield_norm ~ defol_mean + (1 | year),
-#                  data = ref_dischargePrecip, control = lmerControl(optimizer ="Nelder_Mead"))
-# #ref_dischargePrecip$Ymod_ref<- predict(Ymod_ref) #cannot calculate prediction_refs with both standard errors and random effects
-# 
-# #Yield anomaly
-# ref_1 <- ggplot(ref_dischargePrecip) +
-#   geom_point(aes(x = defol_mean, y = yield_norm, color = as.factor(year))) +
-#   #  geom_line(aes(x = defol_mean, y = Ymod_ref, group = as.factor(year), color = as.factor(year)), size = 1, linetype = "solid") +
-#   scale_color_manual(values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4", "mediumpurple4"))+
-#   labs(x = "Defoliation metric", y = "Water yield anomaly (m)")+
-#   #facet_wrap(~year)+
-#   theme_cowplot()+
-#   theme(legend.position="none")
-# 
-# #Precip anomaly
-# Precipmod_ref <- lmer(precip_norm ~ defol_mean + (1 | year),
-#                       data = ref_dischargePrecip, control = lmerControl(optimizer ="Nelder_Mead"))
-# ref_dischargePrecip$Precipmod_ref<- predict(Precipmod_ref) #cannot calculate prediction_refs with both standard errors and random effects
-# 
-# ref_2 <- ggplot(ref_dischargePrecip) +
-#   geom_point(aes(x = defol_mean, y = precip_norm, color = as.factor(year))) +
-#   #  geom_line(aes(x = defol_mean, y = Precipmod_ref, group = as.factor(year), color = as.factor(year)), size = 1, linetype = "dashed") +
-#   scale_color_manual(values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4", "mediumpurple4"))+
-#   labs(x = "Defoliation metric", y = "Precipitation anomaly (m)")+
-#   #facet_wrap(~year)+
-#   theme_cowplot()+
-#   theme(legend.position="none")
-# 
-# 
-# ref_3_leg <- get_legend(ref_3 + theme(legend.position="bottom"))
-# 
-# refgages_plots <- plot_grid(ref_1, ref_2, ref_3, labels = c("A", "B", "C"), nrow = 1)
-# plot_grid(refgages_plots, ref_3_leg, ncol = 1, rel_heights = c(1, 0.2))
 
 # Finding number of gages with different baseline period durations
 gages_uniq <- unique(dischargePrecip$STAID)
