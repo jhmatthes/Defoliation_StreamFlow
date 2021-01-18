@@ -85,12 +85,15 @@ plot_FDC <- FALSE # Plot & save each gage's FDC curve in a PDF file? (set file p
 start_month <- 6
 end_month <- 9 
 
+
 for(g in 1:length(gages_STAID$STAID)){
   
   print(paste0("Working on ",g))
   
   # Read 15-min gage discharge data
-  dat <- read.csv(paste0("data/Gage_Data/",gages_STAID$STAID[g],"_15min.csv"), header=T) 
+  #code to read into sarah smith-tripps computer
+  dat <- read.csv(paste0("/Volumes/SP PHD U3/Wellesley/Thesis/Drive Connection/Code /Code/Gage_Data/discharge_15min/",gages_STAID$STAID[g], "_15min.csv"), header = T)
+  #dat <- read.csv(paste0("data/Gage_Data/",gages_STAID$STAID[g],"_15min.csv"), header=T) 
   dat <- tidyr::separate(dat, dateTime, into = c("date","time"), sep = "T", remove = F) 
   dat$time <- substr(dat$time,1,8)
   dat <- dplyr::mutate(dat, date = as.Date(date, format = "%Y-%m-%d"),
@@ -254,6 +257,97 @@ dischargePrecip <- dischargePrecip %>%
                 !is.na(runoff_ratio_anom))  #remove stream gage on cape cod, that is not a single basin
 
 # Plots and Linear Models -----------------------------------------------
+## Code to calculate Moran's I to assess for spatial correlation in defoliation values 
+# calculates each model by year
+
+#load the locations of the stream gages 
+allgages_defol <- read_sf("Data/Defoliation_Data_Wide/Gages_FrstMask_DefolLt6_4Dec2019.shp") %>% 
+  select("LNG_GAGE", "LAT_GAGE", "STAID")
+
+data <- subset(gages_defol, !is.na(defol_mean)) %>% pivot_wider(names_from = year, values_from = defol_mean)
+q <- which(grepl("20", names(data)))
+names_data <- names(data)[q]
+names(data)[q] <- lapply(names_data, paste0, "_defol")
+dischargePrecip_w <- dischargePrecip %>% select("STAID", "year", "runoff_ratio") %>% 
+  right_join(data) %>% drop_na(runoff_ratio) %>% pivot_wider(names_from = year, values_from = runoff_ratio) %>% 
+  drop_na('2015') %>% drop_na('2016') %>% drop_na('2017') %>%
+  left_join(allgages_defol)
+
+#Generate a distance matrix to use for assessing spatial autocorrelation
+gage_dist <- as.matrix(dist(cbind(dischargePrecip_w$LNG_GAGE, dischargePrecip_w$LAT_GAGE)))
+
+#take inverse of matrix 
+gage_dist_inv <- 1/gage_dist
+
+diag(gage_dist_inv) <- 0
+
+lm_2015 <- lm(`2015` ~ `2015_defol`, dischargePrecip_w)
+par(mfrow = c(2,2))
+plot(lm_2015, which = 1:4)
+par(mfrow = c(1,1))
+
+#create a bubble plot of model residuals to detect areas of spatial correlation
+dischargePrecip_w$Resid <- rstandard(lm_2015)
+library(sp)
+coordinates(dischargePrecip_w) <- ~LAT_GAGE + LNG_GAGE
+bubble(dischargePrecip_w, "Resid")
+
+#2015 
+ape::Moran.I(dischargePrecip_w$`2015_defol`, gage_dist_inv)
+#2016
+ape::Moran.I(dischargePrecip_w$`2016_defol`, gage_dist_inv)
+#2017
+ape::Moran.I(dischargePrecip_w$`2017_defol`, gage_dist_inv)
+#2018
+ape::Moran.I(allgages_defol$X_18mean, gage_dist_inv)
+
+
+##Expand this modeling framework to the entire model 
+locations <- gage_locations[, c("STAID_string", "lat", "lon")]
+names(locations) <- c("STAID", "lat", "lon")
+
+#add stream gage locations to the model (for some reason, not all have lat and long already)
+dischargePrecip_l <- dischargePrecip_l %>% 
+  left_join(locations)
+
+#simple model does not require different packages
+lm <- lm(runoff_ratio ~ defol_mean + (1 | year), dischargePrecip_l)
+par(mfrow = c(2,2))
+plot(lm_2015, which = 1:4)
+
+#create a bubble plot of model residuals to detect areas of spatial correlation
+dischargePrecip_l$Resid_lm <- rstandard(lm)
+library(sp)
+coordinates(dischargePrecip_l) <- ~lat + lon
+bubble(dischargePrecip_l, "Resid_lm")
+
+library(nlme)
+#null model without spatial autocorrelation
+lme_null <- lme(runoff_ratio ~ defol_mean, random = ~1|year, 
+                 dischargePrecip_l, method = "REML")
+plot(Variogram(lme_null, data = dischargePrecip_l)) #Variogram does not support spatial autocorrelation
+
+#method run with lme4 to see if results are different 
+lmer4_null <- lme4::lmer(dischargePrecip_l$runoff_ratio ~ dischargePrecip_l$defol_mean + (1 | dischargePrecip_l$year)) #control = lme4::lmerControl(optimizer ="Nelder_Mead"))
+
+exp_lin <- update(lme_null, correlation = corLin(form = ~lat + lon, nugget = T))
+exp_lme <- update(lme_null, correlation = corExp(form = ~lat + lon, nugget = T))
+exp_gaus  <- update(lme_null, correlation = corGaus(form = ~lat + lon, nugget = T))
+exp_rat  <- update(lme_null, correlation = corRatio(form = ~lat + lon, nugget = T))
+exp_sph  <- update(lme_null, correlation = corSpher(form = ~lat + lon, nugget = T))
+
+#look at the best models 
+AIC(lme_null, exp_lme, exp_lin, exp_gaus, exp_rat, exp_sph)
+BIC(lme_null, exp_lme, exp_lin, exp_gaus, exp_rat, exp_sph)
+
+
+
+summary(exp_lin) # best model given spatial correlation 
+#plot variogram for the model 
+plot(nlme::Variogram(exp_lin, resType = "normalized"))
+
+
+## Code and figures for the paper 
 # FIG 2: Defoliation Boxplot x Year with Ref/Non-Ref gages marked
 dischargePrecip$ref_gage <- as.factor(dischargePrecip$ref_gage)
 levels(dischargePrecip$ref_gage) <- c("Non-Ref", "Ref")
