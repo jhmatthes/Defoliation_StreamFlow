@@ -62,15 +62,17 @@ gages_defol <- dplyr::rename(gages_defol, ref_gage = CLASS)
 # Load table with info for the stream gages that had good 15-min data 
 gages_goodDischargeDuration <- readr::read_csv("data/streamGagesCoverage_v2.csv") 
 
-# Filter all subwatersheds by those with good gage data
-gages_defol <- dplyr::filter(gages_defol, STAID %in% gages_goodDischargeDuration$STAID)
+# Filter all subwatersheds to those with good 15-min gage data
+gages_defol <- dplyr::filter(gages_defol, 
+                             STAID %in% gages_goodDischargeDuration$STAID)
 gages_STAID <- data.frame(STAID = unique(gages_defol$STAID), 
                           DRAIN_SQKM = unique(gages_defol$DRAIN_SQKM)) %>%
   dplyr::arrange(STAID)
 
 # Load table with info for the stream gages that had 15-min data 
 gages_goodDischargeDuration <- readr::read_csv("data/gagelocations_v2.csv") %>%
-  dplyr::left_join(filter(gages_STAID)) 
+  dplyr::mutate(STAID = STAID_string) %>%
+  dplyr::left_join(gages_STAID)
 
 # Download 15-min USGS gage data for 1995-2017 to local data/Gage_Data directory
 # This may take awhile (1-2 hours) depending on download speeds and for this analysis
