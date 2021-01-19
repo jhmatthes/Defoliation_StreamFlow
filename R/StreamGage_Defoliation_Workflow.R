@@ -4,15 +4,16 @@
 # Impacts of a regional multi-year insect defoliation event on seasonal runoff ratios 
 # and instantaneous streamflow characteristics, In Review.
 
-# Functions from external libraries are called by functions where
-# needed, except for magrittr, lme4, and lmerTest
+# Functions from external libraries are called at functions where needed,
+# except for ggplot2, magrittr, lme4, and lmerTest
 #library(dataRetrieval) # for downloading stream gage data
 #library(dplyr)
 #library(tidyr)
 #library(lubridate)
 #library(cowplot)
+#library(daymetr)
+library(ggplot2)
 library(magrittr)
-library(daymetr)
 library(sf)
 library(lme4)
 library(lmerTest)
@@ -91,9 +92,7 @@ for(g in 1:length(gages_STAID$STAID)){
   print(paste0("Working on ",g))
   
   # Read 15-min gage discharge data
-  #code to read into sarah smith-tripps computer
-  dat <- read.csv(paste0("/Volumes/SP PHD U3/Wellesley/Thesis/Drive Connection/Code /Code/Gage_Data/discharge_15min/",gages_STAID$STAID[g], "_15min.csv"), header = T)
-  #dat <- read.csv(paste0("data/Gage_Data/",gages_STAID$STAID[g],"_15min.csv"), header=T) 
+  dat <- read.csv(paste0("data/Gage_Data/",gages_STAID$STAID[g],"_15min.csv"), header=T) 
   dat <- tidyr::separate(dat, dateTime, into = c("date","time"), sep = "T", remove = F) 
   dat$time <- substr(dat$time,1,8)
   dat <- dplyr::mutate(dat, date = as.Date(date, format = "%Y-%m-%d"),
@@ -230,14 +229,20 @@ gages_dischargePrecip <- dplyr::full_join(gages_seasonalPrecip, gages_seasonalDi
   dplyr::mutate(runoff_ratio = yield_seasonal/precip_ann, na.rm=TRUE)
 
 # Calculate the departures in precipitation & discharge from the 20-year mean (1995-2014)
+# Include stdev in the baseline period for precip & discharge
 dischargePrecip_mean <- gages_dischargePrecip %>%
   dplyr::filter(year < 2015) %>%
   dplyr::group_by(STAID) %>%
   dplyr::summarize(precip_mean = mean(precip_ann, na.rm=TRUE),
-            precip_gage_mean = mean(precip_gage, na.rm=TRUE),
-            discharge_mean = mean(discharge_seasonal, na.rm=TRUE),
-            yield_mean = mean(yield_seasonal, na.rm=TRUE),
-            runoff_ratio_mean = mean(runoff_ratio, na.rm=TRUE)) %>%
+                   precip_sd = sd(precip_ann, na.rm=TRUE),
+                   precip_gage_mean = mean(precip_gage, na.rm=TRUE),
+                   precip_gage_sd = sd(precip_gage, na.rm=TRUE),
+                   discharge_mean = mean(discharge_seasonal, na.rm=TRUE),
+                   discharge_sd = sd(discharge_seasonal, na.rm=TRUE),
+                   yield_mean = mean(yield_seasonal, na.rm=TRUE),
+                   yield_sd = mean(yield_seasonal, na.rm=TRUE),
+                   runoff_ratio_mean = mean(runoff_ratio, na.rm=TRUE),
+                   runoff_ratio_sd = sd(runoff_ratio, na.rm=TRUE)) %>%
   dplyr::filter(runoff_ratio_mean < 2)
 
 # Yield ratio calculates the departure of runoff ratio 
@@ -247,6 +252,54 @@ dischargePrecip <- dplyr::left_join(dischargePrecip_mean, gages_dischargePrecip,
          yield_anom = yield_seasonal - yield_mean,
          runoff_ratio_anom = runoff_ratio - runoff_ratio_mean)
 
+# Assess variation in the baseline period anomalies
+dischargePrecip_baseline <- dischargePrecip %>%
+  dplyr::filter(year < 2015)
+
+# dischargePrecip_baselineAnomalies <- dischargePrecip_baseline %>%
+#   dplyr::group_by(STAID) %>%
+#   dplyr::summarize(discharge_anom_var = sd(discharge_anom, na.rm=T),
+#                    discharge_anom_mean = mean(discharge_anom, na.rm=T),
+#                    yield_anom_var = sd(yield_anom, na.rm=T),
+#                    yield_anom_mean = mean(yield_anom, na.rm=T),
+#                    runoff_ratio_anom_var = sd(runoff_ratio_anom, na.rm=T),
+#                    runoff_ratio_anom_mean = mean(runoff_ratio_anom, na.rm=T))
+
+# Assess stdev in baseline versus defoliation years across the region:
+# Is there more variation in regional streamflow than baseline variation in 2015-2017?
+dischargePrecip_baselineSD <- dischargePrecip_baseline %>%
+  dplyr::group_by(year) %>%
+  dplyr::summarize(runoff_ratio_anom_sd = sd(runoff_ratio_anom, na.rm=T),
+            yield_anom_sd = sd(yield_anom, na.rm=T),
+            precip_anom_sd = sd(precip_anom, na.rm=T))
+
+dischargePrecip_defolSD <- dischargePrecip %>%
+  dplyr::group_by(year) %>%
+  dplyr::summarize(runoff_ratio_anom_sd = sd(runoff_ratio_anom, na.rm=T),
+                   yield_anom_sd = sd(yield_anom, na.rm=T),
+                   precip_anom_sd = sd(precip_anom, na.rm=T))
+
+stats_SD <- dplyr::bind_rows(dischargePrecip_baselineSD, dischargePrecip_defolSD)
+
+precip_SD <- ggplot(stats_SD) +
+  geom_point(aes(x = year, y = precip_anom_sd)) +
+  labs(x = "Year", y = "Regional SD in Precip Anom.") +
+  cowplot::theme_cowplot()
+
+yield_SD <- ggplot(stats_SD) +
+  geom_point(aes(x = year, y = yield_anom_sd)) +
+  labs(x = "Year", y = "Regional SD in Yield Anom.") +
+  cowplot::theme_cowplot()
+
+RR_SD <- ggplot(stats_SD) +
+  geom_point(aes(x = year, y = runoff_ratio_anom_sd)) +
+  labs(x = "Year", y = "Regional SD in Runoff Ratio Anom.") +
+  cowplot::theme_cowplot()
+
+cowplot::plot_grid(yield_SD, precip_SD, RR_SD, nrow = 1,
+                   labels = c("A","B","C"))
+
+# Connect stream data to defoliation data                   
 gages_defol_vals <- gages_defol %>% 
   dplyr::filter(STAID %in% unique(dischargePrecip$STAID)) %>% 
   dplyr::mutate(defol_mean = defol_mean*-1)
@@ -351,11 +404,11 @@ plot(nlme::Variogram(exp_lin, resType = "normalized"))
 # FIG 2: Defoliation Boxplot x Year with Ref/Non-Ref gages marked
 dischargePrecip$ref_gage <- as.factor(dischargePrecip$ref_gage)
 levels(dischargePrecip$ref_gage) <- c("Non-Ref", "Ref")
-#png("figures/FIG2.png", width = 4000, height = 2500, res = 600)
+#png("figures/FIG2_v2.png", width = 4000, height = 2500, res = 600)
 defol_boxplot <- ggplot(dischargePrecip, aes(as.factor(year), defol_mean, 
                             color = as.factor(year), shape = ref_gage, 
                             size = ref_gage, group = year)) + 
-  geom_boxplot(alpha = 0.2, outlier.colour = NA, show.legend=FALSE) +
+  geom_boxplot(outlier.colour = NA, show.legend=FALSE, color = "black") +
   geom_hline(yintercept = 0, lty = 2) + 
   geom_point( alpha = 0.8, position = "jitter")+
   scale_size_discrete(range = c(2,3.5), name = NULL, labels = NULL,breaks = NULL) + 
@@ -396,6 +449,23 @@ RunoffRatio_All <- ggplot(dischargePrecip) +
   xlim(c(-1, 2))+
   cowplot::theme_cowplot()+
   theme(legend.position="none")
+
+# Boxplot of RR anomalies and each year of defoliation
+RunoffRatio_boxplot <- ggplot(data = dischargePrecip, 
+                              aes(x = as.factor(year), y = runoff_ratio_anom, 
+                                  color = defol_mean)) +
+  geom_boxplot(data = dischargePrecip_baseline, aes(x = "1995-2014", y = runoff_ratio_anom),
+               outlier.colour = NA, show.legend=FALSE, color = "black") +
+  geom_boxplot(data = dischargePrecip, aes(x = as.factor(year), y = runoff_ratio_anom), 
+               outlier.colour = NA, show.legend=FALSE, alpha = 0.9) +
+  geom_hline(yintercept = 0, lty = 2) +
+  geom_point(alpha = 0.7, position = "jitter")+
+  ylim(-0.25, 0.4) +
+  scale_color_gradient2(name = "Defoliation\nMetric", high = scales::muted("red"), 
+                        mid = "lightgrey", low = scales::muted("blue")) +
+  labs(x = "Year", y = "Runoff Ratio Anomaly")+
+  cowplot::theme_cowplot()+
+  theme(legend.key = element_rect(fill = NA, color = NA))
 
 # Runoff Ratio ~ defoliation; References gages only
 ref_dischargePrecip <- dplyr::filter(dischargePrecip, ref_gage == "Ref")
