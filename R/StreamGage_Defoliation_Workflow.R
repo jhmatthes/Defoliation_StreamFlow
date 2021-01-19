@@ -114,23 +114,43 @@ for(g in 1:length(gages_STAID$STAID)){
     dplyr::mutate(days_good = sum_good/(4*24),
            days_good_frac = sum_good/(4*24)/lubridate::days_in_month(month))
   
-  # Calculate baseline (pre-2015) flow duration curve & pull percentile flow stats 
+  # Calculate baseline (pre-2015) flow duration curve & pull percentile flow stats
+  FDC_colnames <- c("STAID", "datasub", "FDC_type", "flow_05", "flow_25", 
+                    "flow_50", "flow_75", "flow_95")
   dat_baseline <- dplyr::filter(dat, date < "2015-01-01")
   baseline <- FDC_calc(dat_baseline$X_00060_00000*0.0283168, baseline = T) #ft3/s to m3/s
   baseline_stats <- FDC_pertiles(baseline, gages_STAID$STAID[g], "baseline")
    
   # Add 2015, 2016, 2017, 2018 flow duration curves & pull percentile flow stats
   dat_2015 <- dplyr::filter(dat, date >= "2015-06-01" & date <= "2015-09-30")
-  FDC_2015 <- FDC_calc(dat_2015$X_00060_00000*0.0283168, baseline = T) #ft3/s to m3/s
-  F2015_stats <- FDC_pertiles(FDC_2015, gages_STAID$STAID[g], "2015")
+  if(nrow(dat_2015) != 0){
+    FDC_2015 <- FDC_calc(dat_2015$X_00060_00000*0.0283168, baseline = T) #ft3/s to m3/s
+    F2015_stats <- FDC_pertiles(FDC_2015, gages_STAID$STAID[g], "2015")
+  } else {
+    F2015_stats_vals <- c(gages_STAID$STAID[g], 2015, rep(NA, 6))
+    F2015_stats <- rbind(F2015_stats_vals, F2015_stats_vals)
+    colnames(F2015_stats) <- FDC_colnames
+  }
   
-  dat_2016 <- dplyr::filter(dat, date >= "2016-06-01" & date <= "2016-09-30")
-  FDC_2016 <- FDC_calc(dat_2016$X_00060_00000*0.0283168, baseline = T) #ft3/s to m3/s
-  F2016_stats <- FDC_pertiles(FDC_2016, gages_STAID$STAID[g], "2016")
+  if(nrow(dat_2016) != 0){
+    dat_2016 <- dplyr::filter(dat, date >= "2016-06-01" & date <= "2016-09-30")
+    FDC_2016 <- FDC_calc(dat_2016$X_00060_00000*0.0283168, baseline = T) #ft3/s to m3/s
+    F2016_stats <- FDC_pertiles(FDC_2016, gages_STAID$STAID[g], "2016")
+  } else {
+    F2016_stats_vals <- c(gages_STAID$STAID[g], 2016, rep(NA, 6))
+    F2016_stats <- rbind(F2016_stats_vals, F2016_stats_vals)
+    colnames(F2016_stats) <- FDC_colnames
+  }
   
-  dat_2017 <- dplyr::filter(dat, date >= "2017-06-01" & date <= "2017-09-30")
-  FDC_2017 <- FDC_calc(dat_2017$X_00060_00000*0.0283168, baseline = T) #ft3/s to m3/s
-  F2017_stats <- FDC_pertiles(FDC_2017, gages_STAID$STAID[g], "2017")
+  if(nrow(dat_2017) != 0){
+    dat_2017 <- dplyr::filter(dat, date >= "2017-06-01" & date <= "2017-09-30")
+    FDC_2017 <- FDC_calc(dat_2017$X_00060_00000*0.0283168, baseline = T) #ft3/s to m3/s
+    F2017_stats <- FDC_pertiles(FDC_2017, gages_STAID$STAID[g], "2017")
+  } else {
+    F2017_stats_vals <- c(gages_STAID$STAID[g], 2017, rep(NA, 6))
+    F2017_stats <- rbind(F2017_stats_vals, F2017_stats_vals)
+    colnames(F2017_stats) <- FDC_colnames
+  }
   
   # Combine all FDC stats for this site
   FDC_stats <- rbind(baseline_stats, F2015_stats, F2016_stats, F2017_stats)
@@ -554,8 +574,10 @@ for(g in 1:length(sites)){
     baseline <- as.numeric(dplyr::filter(discharge_site, year == "baseline")[,stats_columns[s]])
     
     # Calculate differences between 2015-2018 and baseline FDC stats
+    if(nrow(dplyr::filter(discharge_site, year == "2015")) != 0) {
     diff_15 <- (as.numeric(dplyr::filter(discharge_site, year == "2015")[,stats_columns[s]])-
                   baseline)/baseline
+    } else {diff_15 <- NA}
     
     diff_16 <- (as.numeric(dplyr::filter(discharge_site, year == "2016")[,stats_columns[s]])-
                   baseline)/baseline
@@ -586,46 +608,81 @@ flow_diff_defol <- dplyr::left_join(FDC_departures, gages_defol,
     flow_diff = flow_diff * 100)
 
 # FDC percentile departures random effects models  --------------------------------------------
-FDC_data <- tidyr::pivot_wider(flow_diff_defol, names_from = stat_type, values_from = flow_diff)
+FDC_data <- tidyr::pivot_wider(flow_diff_defol, names_from = stat_type, values_from = flow_diff) %>%
+  dplyr::filter(!is.na(flow_50))
 
 # All Gages 50% exceedence (medium probability of flow value) Model
 ALL_FDC50_int <- lmer(flow_50 ~ defol_mean + (1 | year), 
                       data = FDC_data,
                       control = lmerControl(optimizer ="Nelder_Mead"))
 summary(ALL_FDC50_int)
-FDC_data$flow_50_model <- predict(ALL_FDC50_int)
+FDC_data$flow_50_model <- as.vector(predict(ALL_FDC50_int))
+
+# All Gages 50% exceedence (medium probability of flow value) Model
+ALL_FDC50_sl <- lmer(flow_50 ~ defol_mean + (1 + defol_mean|year), 
+                     data = FDC_data,
+                     control = lmerControl(optimizer ="Nelder_Mead"))
+lme4::ranef(ALL_FDC50_sl)
+summary(ALL_FDC50_sl)
+anova(ALL_FDC50_int, ALL_FDC50_sl)
+FDC_data$flow_50_model <- as.vector(predict(ALL_FDC50_sl))
 
 FDC_REFdata <- dplyr::filter(FDC_data, ref_gage == "Ref")
 REF_FDC50_int <- lmer(flow_50 ~ defol_mean + (1 | year), 
                        data = FDC_REFdata, 
                       control = lmerControl(optimizer ="Nelder_Mead"))
 summary(REF_FDC50_int)
-FDC_REFdata$flow_50_model <- predict(REF_FDC50_int)
+
+REF_FDC50_sl <- lmer(flow_50 ~ defol_mean + (1 + defol_mean|year), 
+                      data = FDC_REFdata, 
+                      control = lmerControl(optimizer ="Nelder_Mead"))
+anova(REF_FDC50_int, REF_FDC50_sl)
+FDC_REFdata$flow_50_model <- predict(REF_FDC50_sl)
 
 # All Gages 25% exceedence (low probability of flow value) Model
 ALL_FDC25_int <- lmer(flow_25 ~ defol_mean + (1 | year), 
                       data = FDC_data)
-FDC_data$flow_25_model <- predict(ALL_FDC25_int)
+summary(ALL_FDC25_int)
+
+ALL_FDC25_sl <- lmer(flow_25 ~ defol_mean + (1 + defol_mean|year), 
+                      data = FDC_data)
+anova(ALL_FDC25_int, ALL_FDC25_sl)
+
+FDC_data$flow_25_model <- predict(ALL_FDC25_sl)
 
 # Reference gages 25% exceedence (low probability of flow value) Model
 REF_FDC25_int <- lmer(flow_25 ~ defol_mean + (1 | year), 
                       data = FDC_REFdata)
-FDC_REFdata$flow_25_model <- predict(REF_FDC25_int)
 summary(REF_FDC25_int)
+
+REF_FDC25_sl <- lmer(flow_25 ~ defol_mean + (1 + defol_mean|year), 
+                      data = FDC_REFdata)
+anova(REF_FDC25_int, REF_FDC25_sl)
+FDC_REFdata$flow_25_model <- predict(REF_FDC25_sl)
 
 # All Gages 75% exceedence (high probability of flow value) Model
 ALL_FDC75_int <- lmer(flow_75 ~ defol_mean + (1 | year), 
                       data = FDC_data)
+summary(ALL_FDC25_int)
+
+ALL_FDC75_sl <- lmer(flow_75 ~ defol_mean + (1 + defol_mean|year), 
+                      data = FDC_data)
+anova(ALL_FDC75_int, ALL_FDC75_sl)
+
 FDC_data$flow_75_model <- predict(ALL_FDC75_int)
 
 # Reference Gages 75% exceedence (high probability of flow value) Model
 REF_FDC75_int <- lmer(flow_75 ~ defol_mean + (1 | year), 
                       data = FDC_REFdata)
-FDC_REFdata$flow_75_model <- predict(REF_FDC75_int)
 summary(REF_FDC75_int)
 
+REF_FDC75_sl <- lmer(flow_75 ~ defol_mean + (1 + defol_mean|year), 
+                      data = FDC_REFdata)
+anova(REF_FDC75_int, REF_FDC75_sl)
+FDC_REFdata$flow_75_model <- predict(REF_FDC75_sl)
+
 #### Plot defoliation ~ FDC percentile changes
-FDC_data <- mutate(FDC_data, Year = year)
+#FDC_data <- mutate(FDC_data, Year = year)
 # Plot changes in 25%tile against defoliation, by year
 all_plot_25 <- ggplot(FDC_data) + 
   geom_point(aes( x = defol_mean, y = flow_25, color = year)) +
@@ -652,8 +709,8 @@ all_plot_50 <- ggplot(FDC_data)  +
 
 # Plot changes in 75%tile against defoliation, by year
 all_plot_75 <- ggplot(FDC_data) + 
-  geom_point(aes( x = defol_mean, y = flow_75, color = Year)) +
-  geom_line(aes(x = defol_mean, y = flow_75_model, color = Year), linetype = "dashed")+
+  geom_point(aes( x = defol_mean, y = flow_75, color = year)) +
+  geom_line(aes(x = defol_mean, y = flow_75_model, color = year), linetype = "dashed")+
   scale_color_manual(values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4"))+
   ylim(c(-100,100)) +
   labs(x = "Defoliation metric", 
