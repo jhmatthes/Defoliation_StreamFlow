@@ -85,14 +85,14 @@ gages_goodDischargeDuration <- readr::read_csv("data/gagelocations_v2.csv") %>%
 plot_FDC <- FALSE # Plot & save each gage's FDC curve in a PDF file? (set file path below)
 start_month <- 6
 end_month <- 9 
-
+gage15min_path <- "data/Gage_Data/" 
 
 for(g in 1:length(gages_STAID$STAID)){
   
   print(paste0("Working on ",g))
   
   # Read 15-min gage discharge data
-  dat <- read.csv(paste0("data/Gage_Data/",gages_STAID$STAID[g],"_15min.csv"), header=T) 
+  dat <- read.csv(paste0(gage15min_path,gages_STAID$STAID[g],"_15min.csv"), header=T) 
   dat <- tidyr::separate(dat, dateTime, into = c("date","time"), sep = "T", remove = F) 
   dat$time <- substr(dat$time,1,8)
   dat <- dplyr::mutate(dat, date = as.Date(date, format = "%Y-%m-%d"),
@@ -103,7 +103,7 @@ for(g in 1:length(gages_STAID$STAID)){
   # Calculate seasonal budgets of discharge for each stream gage x year
   watershed_area <- gages_STAID$DRAIN_SQKM[g]
   gages_monthlyDischarge_hires_site <- dat %>% 
-    dplyr::mutate(time = lubridate::hms(lubridate::as_datetime(dateTime))) %>%
+#    dplyr::mutate(time = lubridate::hms(lubridate::as_datetime(dateTime))) %>%
     dplyr::filter(month >= start_month & month <= end_month) %>%
     dplyr::mutate(month_year = paste0(month,"-",year)) %>%
     dplyr::group_by(site_no, month_year, month, year) %>%
@@ -120,15 +120,15 @@ for(g in 1:length(gages_STAID$STAID)){
   baseline_stats <- FDC_pertiles(baseline, gages_STAID$STAID[g], "baseline")
    
   # Add 2015, 2016, 2017, 2018 flow duration curves & pull percentile flow stats
-  dat_2015 <- dplyr::filter(dat, date >= "2015-01-01" & date <= "2015-12-31")
+  dat_2015 <- dplyr::filter(dat, date >= "2015-06-01" & date <= "2015-09-30")
   FDC_2015 <- FDC_calc(dat_2015$X_00060_00000*0.0283168, baseline = T) #ft3/s to m3/s
   F2015_stats <- FDC_pertiles(FDC_2015, gages_STAID$STAID[g], "2015")
   
-  dat_2016 <- dplyr::filter(dat, date >= "2016-01-01" & date <= "2016-12-31")
+  dat_2016 <- dplyr::filter(dat, date >= "2016-06-01" & date <= "2016-09-30")
   FDC_2016 <- FDC_calc(dat_2016$X_00060_00000*0.0283168, baseline = T) #ft3/s to m3/s
   F2016_stats <- FDC_pertiles(FDC_2016, gages_STAID$STAID[g], "2016")
   
-  dat_2017 <- dplyr::filter(dat, date >= "2017-01-01" & date <= "2017-12-31")
+  dat_2017 <- dplyr::filter(dat, date >= "2017-06-01" & date <= "2017-09-30")
   FDC_2017 <- FDC_calc(dat_2017$X_00060_00000*0.0283168, baseline = T) #ft3/s to m3/s
   F2017_stats <- FDC_pertiles(FDC_2017, gages_STAID$STAID[g], "2017")
   
@@ -255,15 +255,6 @@ dischargePrecip <- dplyr::left_join(dischargePrecip_mean, gages_dischargePrecip,
 # Assess variation in the baseline period anomalies
 dischargePrecip_baseline <- dischargePrecip %>%
   dplyr::filter(year < 2015)
-
-# dischargePrecip_baselineAnomalies <- dischargePrecip_baseline %>%
-#   dplyr::group_by(STAID) %>%
-#   dplyr::summarize(discharge_anom_var = sd(discharge_anom, na.rm=T),
-#                    discharge_anom_mean = mean(discharge_anom, na.rm=T),
-#                    yield_anom_var = sd(yield_anom, na.rm=T),
-#                    yield_anom_mean = mean(yield_anom, na.rm=T),
-#                    runoff_ratio_anom_var = sd(runoff_ratio_anom, na.rm=T),
-#                    runoff_ratio_anom_mean = mean(runoff_ratio_anom, na.rm=T))
 
 # Assess stdev in baseline versus defoliation years across the region:
 # Is there more variation in regional streamflow than baseline variation in 2015-2017?
