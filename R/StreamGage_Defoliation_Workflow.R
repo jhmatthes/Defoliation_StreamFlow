@@ -122,7 +122,8 @@ for(g in 1:length(gages_STAID$STAID)){
   baseline_stats <- FDC_pertiles(baseline, gages_STAID$STAID[g], "baseline")
    
   # Add 2015, 2016, 2017, 2018 flow duration curves & pull percentile flow stats
-  dat_2015 <- dplyr::filter(dat, date >= "2015-06-01" & date <= "2015-09-30")
+  dat_2015 <- dplyr::filter(dat, date >= paste0("2015-0",start_month,"-01") & 
+                              date <= paste0("2015-0",end_month,"-30"))
   if(nrow(dat_2015) != 0){
     FDC_2015 <- FDC_calc(dat_2015$X_00060_00000*0.0283168, baseline = T) #ft3/s to m3/s
     F2015_stats <- FDC_pertiles(FDC_2015, gages_STAID$STAID[g], "2015")
@@ -132,8 +133,9 @@ for(g in 1:length(gages_STAID$STAID)){
     colnames(F2015_stats) <- FDC_colnames
   }
   
+  dat_2016 <- dplyr::filter(dat, date >= paste0("2016-0",start_month,"-01") & 
+                              date <= paste0("2016-0",end_month,"-30"))
   if(nrow(dat_2016) != 0){
-    dat_2016 <- dplyr::filter(dat, date >= "2016-06-01" & date <= "2016-09-30")
     FDC_2016 <- FDC_calc(dat_2016$X_00060_00000*0.0283168, baseline = T) #ft3/s to m3/s
     F2016_stats <- FDC_pertiles(FDC_2016, gages_STAID$STAID[g], "2016")
   } else {
@@ -142,8 +144,9 @@ for(g in 1:length(gages_STAID$STAID)){
     colnames(F2016_stats) <- FDC_colnames
   }
   
+  dat_2017 <- dplyr::filter(dat, date >= paste0("2017-0",start_month,"-01") & 
+                              date <= paste0("2017-0",end_month,"-30"))
   if(nrow(dat_2017) != 0){
-    dat_2017 <- dplyr::filter(dat, date >= "2017-06-01" & date <= "2017-09-30")
     FDC_2017 <- FDC_calc(dat_2017$X_00060_00000*0.0283168, baseline = T) #ft3/s to m3/s
     F2017_stats <- FDC_pertiles(FDC_2017, gages_STAID$STAID[g], "2017")
   } else {
