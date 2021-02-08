@@ -7,27 +7,16 @@
 #'   Low flow estimation in the United Kingdom. 
 #'   Oxfordshire, United Kingdom: Institute of Hydrology.
 
-FDC_calc <- function(flow, baseline, mean_flow) {
+FDC_calc <- function(flow, mean_flow) {
   
-  if(baseline == TRUE){
-    # Sort the flow values and calculate the FDC statistics
-    rank <- rank(flow, ties.method="max")
-    rank <- max(rank) - rank
-    exceedtime <- 1*(rank / (length(flow) + 1))
-    q_per <- sort(100 * flow / mean(flow), decreasing=FALSE)
-    q_dis <- sort(flow, decreasing = F)
-    exceed <- sort(exceedtime, decreasing=TRUE)
-    fdc_df <- data.frame(exceed, q_per, q_dis, mean_flow = mean(flow))
-  } else {
-    hist_mean <- mean_flow
-    rank <- rank(flow, ties.method="max")
-    rank <- max(rank) - rank
-    exceedtime <- 1*(rank / (length(flow) + 1))
-    q_per <- sort(100 * flow / hist_mean, decreasing=FALSE)
-    q_dis <- sort(flow, decreasing = F)
-    exceed <- sort(exceedtime, decreasing=TRUE)
-    fdc_df <- data.frame(exceed, q_per, q_dis, mean_flow = hist_mean)
-  }
+  # Sort the flow values and calculate the FDC statistics
+  rank <- rank(flow, ties.method="max")
+  rank <- max(rank) - rank
+  exceedtime <- 1*(rank / (length(flow) + 1))
+  q_per <- sort(100 * flow / mean(flow), decreasing=FALSE)
+  q_dis <- sort(flow, decreasing = F)
+  exceed <- sort(exceedtime, decreasing=TRUE)
+  fdc_df <- data.frame(exceed, q_per, q_dis, mean_flow = mean(flow))
   
   return(fdc_df)
 }

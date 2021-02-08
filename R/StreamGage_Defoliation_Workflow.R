@@ -118,14 +118,14 @@ for(g in 1:length(gages_STAID$STAID)){
   FDC_colnames <- c("STAID", "datasub", "FDC_type", "flow_05", "flow_25", 
                     "flow_50", "flow_75", "flow_95")
   dat_baseline <- dplyr::filter(dat, date < "2015-01-01")
-  baseline <- FDC_calc(dat_baseline$X_00060_00000*0.0283168, baseline = T) #ft3/s to m3/s
+  baseline <- FDC_calc(dat_baseline$X_00060_00000*0.0283168) #ft3/s to m3/s
   baseline_stats <- FDC_pertiles(baseline, gages_STAID$STAID[g], "baseline")
    
   # Add 2015, 2016, 2017, 2018 flow duration curves & pull percentile flow stats
   dat_2015 <- dplyr::filter(dat, date >= paste0("2015-0",start_month,"-01") & 
                               date <= paste0("2015-0",end_month,"-30"))
   if(nrow(dat_2015) != 0){
-    FDC_2015 <- FDC_calc(dat_2015$X_00060_00000*0.0283168, baseline = T) #ft3/s to m3/s
+    FDC_2015 <- FDC_calc(dat_2015$X_00060_00000*0.0283168) #ft3/s to m3/s
     F2015_stats <- FDC_pertiles(FDC_2015, gages_STAID$STAID[g], "2015")
   } else {
     F2015_stats_vals <- c(gages_STAID$STAID[g], 2015, rep(NA, 6))
@@ -136,7 +136,7 @@ for(g in 1:length(gages_STAID$STAID)){
   dat_2016 <- dplyr::filter(dat, date >= paste0("2016-0",start_month,"-01") & 
                               date <= paste0("2016-0",end_month,"-30"))
   if(nrow(dat_2016) != 0){
-    FDC_2016 <- FDC_calc(dat_2016$X_00060_00000*0.0283168, baseline = T) #ft3/s to m3/s
+    FDC_2016 <- FDC_calc(dat_2016$X_00060_00000*0.0283168) #ft3/s to m3/s
     F2016_stats <- FDC_pertiles(FDC_2016, gages_STAID$STAID[g], "2016")
   } else {
     F2016_stats_vals <- c(gages_STAID$STAID[g], 2016, rep(NA, 6))
@@ -147,7 +147,7 @@ for(g in 1:length(gages_STAID$STAID)){
   dat_2017 <- dplyr::filter(dat, date >= paste0("2017-0",start_month,"-01") & 
                               date <= paste0("2017-0",end_month,"-30"))
   if(nrow(dat_2017) != 0){
-    FDC_2017 <- FDC_calc(dat_2017$X_00060_00000*0.0283168, baseline = T) #ft3/s to m3/s
+    FDC_2017 <- FDC_calc(dat_2017$X_00060_00000*0.0283168) #ft3/s to m3/s
     F2017_stats <- FDC_pertiles(FDC_2017, gages_STAID$STAID[g], "2017")
   } else {
     F2017_stats_vals <- c(gages_STAID$STAID[g], 2017, rep(NA, 6))
@@ -249,7 +249,11 @@ for(g in 1:nrow(gage_locations)){
 # Combine precipitation and discharge data: calculate yield-to-precip ratio
 gages_dischargePrecip <- dplyr::full_join(gages_seasonalPrecip, gages_seasonalDischarge, 
                                    by = c("STAID", "year")) %>%
-  dplyr::mutate(runoff_ratio = yield_seasonal/precip_ann, na.rm=TRUE)
+  dplyr::mutate(runoff_ratio = yield_seasonal/precip_ann, na.rm=TRUE) 
+
+# Remove gages with bad FDC curve data (likely controlled flow)
+bad_gages <- c("01184100", "01186000", "01202501", "01205500", "01206900")
+gages_dischargePrecip <- gages_dischargePrecip[!(gages_dischargePrecip$STAID %in% bad_gages),]
 
 # Calculate the departures in precipitation & discharge from the 20-year mean (1995-2014)
 # Include stdev in the baseline period for precip & discharge
@@ -293,25 +297,27 @@ dischargePrecip_defolSD <- dischargePrecip %>%
                    yield_anom_sd = sd(yield_anom, na.rm=T),
                    precip_anom_sd = sd(precip_anom, na.rm=T))
 
-stats_SD <- dplyr::bind_rows(dischargePrecip_baselineSD, dischargePrecip_defolSD)
+RRanomaly_SD <- dplyr::bind_rows(dischargePrecip_baselineSD, dischargePrecip_defolSD)
 
-precip_SD <- ggplot(stats_SD) +
+precip_SD <- ggplot(RRanomaly_SD) +
   geom_point(aes(x = year, y = precip_anom_sd)) +
   labs(x = "Year", y = "Regional SD in Precip Anom.") +
   cowplot::theme_cowplot()
 
-yield_SD <- ggplot(stats_SD) +
+yield_SD <- ggplot(RRanomaly_SD) +
   geom_point(aes(x = year, y = yield_anom_sd)) +
   labs(x = "Year", y = "Regional SD in Yield Anom.") +
   cowplot::theme_cowplot()
 
-RR_SD <- ggplot(stats_SD) +
+RR_SD <- ggplot(RRanomaly_SD) +
   geom_point(aes(x = year, y = runoff_ratio_anom_sd)) +
   labs(x = "Year", y = "Regional SD in Runoff Ratio Anom.") +
   cowplot::theme_cowplot()
 
+#png("figures/FIGS_RRanomalySD.png", width = 6000, height = 2500, res = 600)
 cowplot::plot_grid(yield_SD, precip_SD, RR_SD, nrow = 1,
                    labels = c("A","B","C"))
+#dev.off()
 
 # Connect stream data to defoliation data                   
 gages_defol_vals <- gages_defol %>% 
@@ -418,16 +424,17 @@ plot(nlme::Variogram(exp_lin, resType = "normalized"))
 # FIG 2: Defoliation Boxplot x Year with Ref/Non-Ref gages marked
 dischargePrecip$ref_gage <- as.factor(dischargePrecip$ref_gage)
 levels(dischargePrecip$ref_gage) <- c("Non-Ref", "Ref")
-#png("figures/FIG2_v2.png", width = 4000, height = 2500, res = 600)
+#png("figures/FIG2_v4.png", width = 4000, height = 2500, res = 600)
 defol_boxplot <- ggplot(dischargePrecip, aes(as.factor(year), defol_mean, 
-                            color = as.factor(year), shape = ref_gage, 
-                            size = ref_gage, group = year)) + 
-  geom_boxplot(outlier.colour = NA, show.legend=FALSE, color = "black") +
+                                             color = ref_gage)) + 
+  geom_boxplot(aes(color = ref_gage),
+               outlier.colour = NA, show.legend=FALSE) +
   geom_hline(yintercept = 0, lty = 2) + 
-  geom_point( alpha = 0.8, position = "jitter")+
-  scale_size_discrete(range = c(2,3.5), name = NULL, labels = NULL,breaks = NULL) + 
-  scale_color_manual(name = "Year", values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4"))+
-  scale_shape_discrete(name = "Gage class", breaks = c("Non-Ref", "Ref"), labels = c("Non-Reference", "Reference"))+
+  geom_point(aes(color = ref_gage, group = ref_gage), 
+             alpha = 0.8, position = position_jitterdodge())+
+  scale_color_manual(name = "Gage class", 
+                     values = c("darkgrey","black"),
+                     labels = c("Non-Reference", "Reference"))+
   labs(x = "Year", y = "Defoliation Metric")+
   cowplot::theme_cowplot()+
   theme(legend.key = element_rect(fill = NA, color = NA))
@@ -437,43 +444,169 @@ defol_boxplot
 # SUPP: Yearly Precipitation Boxplot x Year with Ref/Non-Ref gages marked
 #png("figures/SuppPrecip.png", width = 4000, height = 2500, res = 600)
 precip_boxplot <- ggplot(dplyr::filter(dischargePrecip, year >=2015),
-                         aes(as.factor(year),precip_ann*1000, color = as.factor(year)))+
+                         aes(as.factor(year),precip_ann*1000, color = ref_gage))+
   geom_hline(yintercept = mean(dischargePrecip_mean$precip_mean)*1000, lty = 2) + 
-  geom_boxplot(alpha = 0.2, outlier.colour = NA, show.legend=FALSE)+
-  geom_point(aes(shape = ref_gage), size = 1.5, alpha = 0.8, position = "jitter")+
-  scale_color_manual(name = "Year", values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4"))+
-  scale_shape_discrete(name = "Gage class", breaks = c("Non-Ref", "Ref"), labels = c("Non-Reference", "Reference"))+
+  geom_boxplot(aes(color = ref_gage),alpha = 0.2, 
+               outlier.colour = NA, show.legend=FALSE)+
+  geom_point(aes(color = ref_gage), size = 1.5, alpha = 0.8, 
+             position = position_jitterdodge())+
+  scale_color_manual(name = "Gage class", values = c("darkgrey", "black"),
+                     labels = c("Non-Reference", "Reference"))+
   labs(x = "Year", y = "Precipitation (mm)")+
   cowplot::theme_cowplot()
 precip_boxplot
 #dev.off()
 
-# FIG 3: Runoff Ratio ~ Defoliation, A) All Gages and B) Reference gages only
+# FIG 3: A) Runoff Ratio ~ Defoliation, B) Yield and C) Precip
 YPmod_all <- lmer(runoff_ratio_anom ~ defol_mean + (1 | year),
                   data = dischargePrecip, control = lmerControl(optimizer ="Nelder_Mead"))
 summary(YPmod_all)
-dischargePrecip$YPmod_all<- predict(YPmod_all) 
+YPmod_all2 <- lmer(runoff_ratio_anom ~ defol_mean + (defol_mean | year),
+                  data = dischargePrecip, control = lmerControl(optimizer ="Nelder_Mead"))
+anova(YPmod_all, YPmod_all2)
+dischargePrecip$YPmod_all<- predict(YPmod_all2) 
 
 RunoffRatio_All <- ggplot(dischargePrecip) +
   geom_point(aes(x = defol_mean, y = runoff_ratio_anom, color = as.factor(year))) +
   geom_line(aes(x = defol_mean, y = YPmod_all, group = as.factor(year), color = as.factor(year)), size = 1, linetype = "solid") +
-  scale_color_manual(values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4", "mediumpurple4"))+
+  scale_color_manual(values = c("#B8DE29FF","#20A387FF", "#440154FF"))+
   labs(x = "Defoliation metric", y = "Runoff ratio anomaly", col = "Year")+
   ylim(c(-0.25, 0.5))+
   xlim(c(-1, 2))+
   cowplot::theme_cowplot()+
   theme(legend.position="none")
 
-# Boxplot of RR anomalies and each year of defoliation
+## FIG3b: Yield Anomaly ~ Defoliation and Precip Anomaly ~ Defoliation
+Ymod_all <- lmer(yield_anom ~ defol_mean + (1 | year),
+                 data = dischargePrecip, 
+                 control = lmerControl(optimizer ="Nelder_Mead"))
+
+Ymod_all2 <- lmer(yield_anom ~ defol_mean + (defol_mean | year),
+                 data = dischargePrecip, 
+                 control = lmerControl(optimizer ="Nelder_Mead"))
+anova(Ymod_all, Ymod_all2)
+summary(Ymod_all)
+dischargePrecip$Ymod_all<- predict(Ymod_all2)
+
+# Plot water yield anomalies ~ defoliation, w/ year random intercept
+all_yieldanom <- ggplot(dischargePrecip) +
+  geom_point(aes(x = defol_mean, y = yield_anom, color = as.factor(year))) +
+  geom_line(aes(x = defol_mean, y = Ymod_all, group = as.factor(year), color = as.factor(year)), size = 1, linetype = "solid") +
+  scale_color_manual(name = "Year", values = c("#B8DE29FF","#20A387FF", "#440154FF"))+
+  labs(x = "Defoliation metric", y = "Water yield anomaly (m)")+
+  cowplot::theme_cowplot()+
+  theme(legend.position="none")
+
+#Precip Anomaly Model
+Precipmod_all <- lmer(precip_anom ~ defol_mean + (1 | year),
+                      data = dischargePrecip)
+Precipmod_all2 <- lmer(precip_anom ~ defol_mean + (defol_mean | year),
+                      data = dischargePrecip)
+anova(Precipmod_all, Precipmod_all2)
+summary(Precipmod_all)
+dischargePrecip$Precipmod_all<- predict(Precipmod_all2) 
+
+all_precipanom <- ggplot(dischargePrecip) +
+  geom_point(aes(x = defol_mean, y = precip_anom, color = as.factor(year))) +
+  geom_line(aes(x = defol_mean, y = Precipmod_all, group = as.factor(year), color = as.factor(year)), size = 1, linetype = "dashed") +
+  scale_color_manual(values = c("#B8DE29FF","#20A387FF", "#440154FF"))+
+  labs(x = "Defoliation metric", y = "Precipitation anomaly (m)")+
+  cowplot::theme_cowplot()+
+  theme(legend.position="none")
+
+RRYieldPrecip_leg <- cowplot::get_legend(all_yieldanom + theme(legend.position="bottom"))
+RRYieldPrecip_plots <- cowplot::plot_grid(RunoffRatio_All, all_yieldanom, all_precipanom, labels = c("A", "B", "C"), nrow = 1)
+#png("figures/Fig3_v3.png", width = 6000, height = 2500, res = 600)
+cowplot::plot_grid(RRYieldPrecip_plots, RRYieldPrecip_leg, 
+                   ncol = 1, rel_heights = c(1.1, 0.2))
+#dev.off()
+
+# Runoff Ratio ~ defoliation; References gages only
+ref_dischargePrecip <- dplyr::filter(dischargePrecip, ref_gage == "Ref")
+YPmod_ref <- lmer(runoff_ratio_anom ~ defol_mean + (1 | year),
+                  data = ref_dischargePrecip, 
+                  control = lmerControl(optimizer ="Nelder_Mead"))
+YPmod_ref2 <- lmer(runoff_ratio_anom ~ defol_mean + (defol_mean | year),
+                  data = ref_dischargePrecip, 
+                  control = lmerControl(optimizer ="Nelder_Mead"))
+anova(YPmod_ref, YPmod_ref2)
+ref_dischargePrecip$YPmod_ref<- predict(YPmod_ref) 
+summary(YPmod_ref)
+
+RunoffRatio_Ref <- ggplot(ref_dischargePrecip) +
+  geom_point(aes(x = defol_mean, y = runoff_ratio_anom, color = as.factor(year))) +
+  geom_line(aes(x = defol_mean, y = YPmod_ref, group = as.factor(year), color = as.factor(year)), size = 1, linetype = "solid") +
+  scale_color_manual(values = c("#B8DE29FF","#20A387FF", "#440154FF"))+
+  labs(x = "Defoliation metric", y = "Runoff ratio anomaly", col = 'Year')+
+  cowplot::theme_cowplot()+
+  ylim(c(-0.25, 0.5)) +
+  xlim(c(-1, 2)) +
+  theme(legend.position="none")
+
+## FIG3b: Yield Anomaly ~ Defoliation and Precip Anomaly ~ Defoliation
+Ymod_ref <- lmer(yield_anom ~ defol_mean + (1 | year),
+                 data = ref_dischargePrecip, 
+                 control = lmerControl(optimizer ="Nelder_Mead"))
+
+Ymod_ref2 <- lmer(yield_anom ~ defol_mean + (defol_mean | year),
+                  data = ref_dischargePrecip, 
+                  control = lmerControl(optimizer ="Nelder_Mead"))
+anova(Ymod_ref, Ymod_all2)
+ref_dischargePrecip$Ymod_ref<- predict(Ymod_ref2)
+
+# Plot water yield anomalies ~ defoliation, w/ year random intercept
+ref_yieldanom <- ggplot(ref_dischargePrecip) +
+  geom_point(aes(x = defol_mean, y = yield_anom, color = as.factor(year))) +
+  geom_line(aes(x = defol_mean, y = Ymod_ref, group = as.factor(year), 
+                color = as.factor(year)), size = 1, linetype = "solid") +
+  scale_color_manual(name = "Year", values = c("#B8DE29FF","#20A387FF", "#440154FF"))+
+  labs(x = "Defoliation metric", y = "Water yield anomaly (m)")+
+  cowplot::theme_cowplot()+
+  theme(legend.position="none")
+
+#Precip Anomaly Model
+Precipmod_ref <- lmer(precip_anom ~ defol_mean + (1 | year),
+                      data = ref_dischargePrecip)
+
+Precipmod_ref2 <- lmer(precip_anom ~ defol_mean + (defol_mean | year),
+                      data = ref_dischargePrecip)
+anova(Precipmod_ref, Precipmod_ref2)
+summary(Precipmod_ref2)
+ref_dischargePrecip$Precipmod_ref <- predict(Precipmod_ref2) 
+
+ref_precipanom <- ggplot(ref_dischargePrecip) +
+  geom_point(aes(x = defol_mean, y = precip_anom, color = as.factor(year))) +
+  geom_line(aes(x = defol_mean, y = Precipmod_ref, group = as.factor(year), color = as.factor(year)), size = 1, linetype = "dashed") +
+  scale_color_manual(values = c("#B8DE29FF","#20A387FF", "#440154FF"))+
+  labs(x = "Defoliation metric", y = "Precipitation anomaly (m)")+
+  cowplot::theme_cowplot()+
+  theme(legend.position="none")
+
+RRYieldPrecip_leg_ref <- cowplot::get_legend(ref_yieldanom + theme(legend.position="bottom"))
+RRYieldPrecip_plots_ref <- cowplot::plot_grid(RunoffRatio_Ref, ref_yieldanom, ref_precipanom, labels = c("A", "B", "C"), nrow = 1)
+#png("figures/Fig4_REFRRanoms.png", width = 6000, height = 2500, res = 600)
+cowplot::plot_grid(RRYieldPrecip_plots_ref, RRYieldPrecip_leg_ref, 
+                   ncol = 1, rel_heights = c(1.1, 0.2))
+#dev.off()
+
+# 
+# RunoffRatio_leg <- cowplot::get_legend(RunoffRatio_All + theme(legend.position="bottom"))
+# RunoffRatio_Plot <- cowplot::plot_grid(RunoffRatio_All, RunoffRatio_Ref, labels = c("A", "B"))
+# RunoffRatio_Plot_Leg <- cowplot::plot_grid(RunoffRatio_Plot, RunoffRatio_leg, ncol = 1, rel_heights = c(1.1, 0.2))
+# #png("figures/Fig3_v2.png", width = 5000, height = 2500, res = 600)
+# RunoffRatio_Plot_Leg
+# #dev.off()
+
+# SUPP: Boxplot of RR anomalies and each year of defoliation
 RunoffRatio_boxplot <- ggplot(data = dischargePrecip, 
                               aes(x = as.factor(year), y = runoff_ratio_anom, 
                                   color = defol_mean)) +
   geom_boxplot(data = dischargePrecip_baseline, aes(x = "1995-2014", y = runoff_ratio_anom),
                outlier.colour = NA, show.legend=FALSE, color = "black") +
   geom_boxplot(data = dischargePrecip, aes(x = as.factor(year), y = runoff_ratio_anom), 
-               outlier.colour = NA, show.legend=FALSE, alpha = 0.9) +
+               outlier.colour = NA, show.legend=FALSE, alpha = 0.8) +
   geom_hline(yintercept = 0, lty = 2) +
-  geom_point(alpha = 0.7, position = "jitter")+
+  geom_point(alpha = 0.8, position = "jitter")+
   ylim(-0.25, 0.4) +
   scale_color_gradient2(name = "Defoliation\nMetric", high = scales::muted("red"), 
                         mid = "lightgrey", low = scales::muted("blue")) +
@@ -481,28 +614,8 @@ RunoffRatio_boxplot <- ggplot(data = dischargePrecip,
   cowplot::theme_cowplot()+
   theme(legend.key = element_rect(fill = NA, color = NA))
 
-# Runoff Ratio ~ defoliation; References gages only
-ref_dischargePrecip <- dplyr::filter(dischargePrecip, ref_gage == "Ref")
-YPmod_ref <- lmer(runoff_ratio_anom ~ defol_mean + (1 | year),
-                  data = ref_dischargePrecip, 
-                  control = lmerControl(optimizer ="Nelder_Mead"))
-ref_dischargePrecip$YPmod_ref<- predict(YPmod_ref) 
-summary(YPmod_ref)
-
-RunoffRatio_Ref <- ggplot(ref_dischargePrecip) +
-  geom_point(aes(x = defol_mean, y = runoff_ratio_anom, color = as.factor(year)), pch = 17) +
-  geom_line(aes(x = defol_mean, y = YPmod_ref, group = as.factor(year), color = as.factor(year)), size = 1, linetype = "solid") +
-  scale_color_manual(values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4", "mediumpurple4"))+
-  labs(x = "Defoliation metric", y = "Runoff ratio anomaly", col = 'Year')+
-  cowplot::theme_cowplot()+
-  ylim(c(-0.25, 0.5)) +
-  xlim(c(-1, 2)) +
-  theme(legend.position="none")
-
-RunoffRatio_leg <- cowplot::get_legend(RunoffRatio_All + theme(legend.position="bottom"))
-RunoffRatio_Plot <- cowplot::plot_grid(RunoffRatio_All, RunoffRatio_Ref, labels = c("A", "B"))
-RunoffRatio_Plot_Leg <- cowplot::plot_grid(RunoffRatio_Plot, RunoffRatio_leg, ncol = 1, rel_heights = c(1.1, 0.2))
-#cowplot::ggsave2(filename = paste0(getwd(), "/figures/FIG3.png"), RunoffRatio_Plot_Leg,  width = 7.5, height = 4, dpi = 600)
+#png("figures/FigS_RRAnomalyDefol.png", width = 4000, height = 2500, res = 600)
+RunoffRatio_boxplot
 #dev.off()
 
 # Bind together LMM models outputs in table format
@@ -517,47 +630,13 @@ RRAnoms_YReffects <- data.frame(data = c(rep("All", 3),rep("Ref Only", 3)),
                                            coef(YPmod_ref)$year[,2]),2), 
                            std_err_slope = signif(c(rep(sqrt(diag(vcov(YPmod_all)))[2],3), 
                                                    rep(sqrt(diag(vcov(YPmod_ref)))[2],3)),2))
-#write.csv(RRAnoms_YReffects, file = "figures/year_effects_inteceptmodel.csv")
+#write.csv(RRAnoms_YReffects, file = "figures/year_effects_inteceptmodel_v2.csv")
 
-## SUPP: Yield Anomaly ~ Defoliation and Precip Anomaly ~ Defoliation
-Ymod_all <- lmer(yield_anom ~ defol_mean + (1 | year),
-                 data = dischargePrecip, 
-                 control = lmerControl(optimizer ="Nelder_Mead"))
-summary(Ymod_all)
-dischargePrecip$Ymod_all<- predict(Ymod_all)
-
-# Plot water yield anomalies ~ defoliation, w/ year random intercept
-all_yieldanom <- ggplot(dischargePrecip) +
-  geom_point(aes(x = defol_mean, y = yield_anom, color = as.factor(year))) +
-  geom_line(aes(x = defol_mean, y = Ymod_all, group = as.factor(year), color = as.factor(year)), size = 1, linetype = "solid") +
-  scale_color_manual(name = "Year",values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4"))+
-  labs(x = "Defoliation metric", y = "Water yield anomaly (m)")+
-  cowplot::theme_cowplot()+
-  theme(legend.position="none")
-
-#Precip Anomaly Model
-Precipmod_all <- lmer(precip_anom ~ defol_mean + (1 | year),
-                      data = dischargePrecip)
-summary(Precipmod_all)
-dischargePrecip$Precipmod_all<- predict(Precipmod_all) 
-
-all_precipanom <- ggplot(dischargePrecip) +
-  geom_point(aes(x = defol_mean, y = precip_anom, color = as.factor(year))) +
-  geom_line(aes(x = defol_mean, y = Precipmod_all, group = as.factor(year), color = as.factor(year)), size = 1, linetype = "dashed") +
-  scale_color_manual(values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4", "mediumpurple4"))+
-  labs(x = "Defoliation metric", y = "Precipitation anomaly (m)")+
-  cowplot::theme_cowplot()+
-  theme(legend.position="none")
-
-YieldPrecip_leg <- cowplot::get_legend(all_yieldanom + theme(legend.position="bottom"))
-YieldPrecip_plots <- cowplot::plot_grid(all_yieldanom, all_precipanom, labels = c("A", "B", "C"), nrow = 1)
-#png("figures/SUPP_REFYanomPanom.png", width = 4000, height = 2500, res = 600)
-cowplot::plot_grid(YieldPrecip_plots, YieldPrecip_leg, ncol = 1, rel_heights = c(1.1, 0.2))
-#dev.off()
 
 # FLOW DURATION CURVE STATISTICS ------------------------------------------
 # Clean up FDC stats by site
-FDC_stats_sites <- dplyr::mutate(FDC_stats_sites, year = datasub)
+FDC_stats_sites <- dplyr::mutate(FDC_stats_sites, year = datasub) %>%
+  filter(STAID %in% FDC_baselinedepartures$STAID)
 
 # Calculate FDC defoliation year departure from baseline stats
 FDC_discharge <- dplyr::filter(FDC_stats_sites, FDC_type == "discharge")
@@ -609,6 +688,20 @@ flow_diff_defol <- dplyr::left_join(FDC_departures, gages_defol,
   dplyr::filter(year >= 2015 & year < 2018) %>%
   dplyr::mutate(defol_mean = defol_mean*-1,
     flow_diff = flow_diff * 100)
+
+# Plot baseline variation with 2015, 2016, 2017 years
+baseline_flow50 <- dplyr::filter(FDC_baselinedepartures, stat_type == "flow_50")
+ggplot() +
+  geom_density(data = baseline_flow50,aes(x = flow_diff*100)) +
+  geom_density(data = dplyr::filter(flow_diff_defol, year == "2015", stat_type == "flow_50"), 
+               aes(x = flow_diff),color="red") +
+  geom_density(data = dplyr::filter(flow_diff_defol, year == "2016", stat_type == "flow_50"), 
+               aes(x = flow_diff),color="blue") +
+  geom_density(data = dplyr::filter(flow_diff_defol, year == "2017", stat_type == "flow_50"), 
+               aes(x = flow_diff),color="purple") +
+  cowplot::theme_cowplot()
+  
+
 
 # FDC percentile departures random effects models  --------------------------------------------
 FDC_data <- tidyr::pivot_wider(flow_diff_defol, names_from = stat_type, values_from = flow_diff) %>%
