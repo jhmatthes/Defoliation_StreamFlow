@@ -458,13 +458,18 @@ precip_boxplot
 #dev.off()
 
 # FIG 3: A) Runoff Ratio ~ Defoliation, B) Yield and C) Precip
-YPmod_all <- lmer(runoff_ratio_anom ~ defol_mean + (1 | year),
-                  data = dischargePrecip, control = lmerControl(optimizer ="Nelder_Mead"))
+# YPmod_all <- lmer(runoff_ratio_anom ~ defol_mean + (1 | year),
+#                   data = dischargePrecip, control = lmerControl(optimizer ="Nelder_Mead"))
+# summary(YPmod_all)
+YPmod_all <- lme(runoff_ratio_anom ~ defol_mean, random= ~ 1 | year,
+               data = dischargePrecip, method="ML")
 summary(YPmod_all)
-YPmod_all2 <- lmer(runoff_ratio_anom ~ defol_mean + (defol_mean | year),
-                  data = dischargePrecip, control = lmerControl(optimizer ="Nelder_Mead"))
+
+YPmod_all2 <- lme(runoff_ratio_anom ~ defol_mean, random= ~ defol_mean | year,
+                 data = dischargePrecip, method="ML")
+summary(YPmod_all2)
 anova(YPmod_all, YPmod_all2)
-dischargePrecip$YPmod_all<- predict(YPmod_all2) 
+dischargePrecip$YPmod_all<- predict(YPmod_all) 
 
 RunoffRatio_All <- ggplot(dischargePrecip) +
   geom_point(aes(x = defol_mean, y = runoff_ratio_anom, color = as.factor(year))) +
@@ -477,16 +482,10 @@ RunoffRatio_All <- ggplot(dischargePrecip) +
   theme(legend.position="none")
 
 ## FIG3b: Yield Anomaly ~ Defoliation and Precip Anomaly ~ Defoliation
-Ymod_all <- lmer(yield_anom ~ defol_mean + (1 | year),
-                 data = dischargePrecip, 
-                 control = lmerControl(optimizer ="Nelder_Mead"))
-
-Ymod_all2 <- lmer(yield_anom ~ defol_mean + (defol_mean | year),
-                 data = dischargePrecip, 
-                 control = lmerControl(optimizer ="Nelder_Mead"))
-anova(Ymod_all, Ymod_all2)
+Ymod_all <- lme(yield_anom ~ defol_mean, random= ~ 1 | year,
+                 data = dischargePrecip, method="ML")
 summary(Ymod_all)
-dischargePrecip$Ymod_all<- predict(Ymod_all2)
+dischargePrecip$Ymod_all<- predict(Ymod_all)
 
 # Plot water yield anomalies ~ defoliation, w/ year random intercept
 all_yieldanom <- ggplot(dischargePrecip) +
@@ -498,13 +497,10 @@ all_yieldanom <- ggplot(dischargePrecip) +
   theme(legend.position="none")
 
 #Precip Anomaly Model
-Precipmod_all <- lmer(precip_anom ~ defol_mean + (1 | year),
-                      data = dischargePrecip)
-Precipmod_all2 <- lmer(precip_anom ~ defol_mean + (defol_mean | year),
-                      data = dischargePrecip)
-anova(Precipmod_all, Precipmod_all2)
+Precipmod_all <- lme(precip_anom ~ defol_mean, random= ~ 1 | year,
+                data = dischargePrecip, method="ML")
 summary(Precipmod_all)
-dischargePrecip$Precipmod_all<- predict(Precipmod_all2) 
+dischargePrecip$Precipmod_all<- predict(Precipmod_all) 
 
 all_precipanom <- ggplot(dischargePrecip) +
   geom_point(aes(x = defol_mean, y = precip_anom, color = as.factor(year))) +
@@ -523,13 +519,8 @@ cowplot::plot_grid(RRYieldPrecip_plots, RRYieldPrecip_leg,
 
 # Runoff Ratio ~ defoliation; References gages only
 ref_dischargePrecip <- dplyr::filter(dischargePrecip, ref_gage == "Ref")
-YPmod_ref <- lmer(runoff_ratio_anom ~ defol_mean + (1 | year),
-                  data = ref_dischargePrecip, 
-                  control = lmerControl(optimizer ="Nelder_Mead"))
-YPmod_ref2 <- lmer(runoff_ratio_anom ~ defol_mean + (defol_mean | year),
-                  data = ref_dischargePrecip, 
-                  control = lmerControl(optimizer ="Nelder_Mead"))
-anova(YPmod_ref, YPmod_ref2)
+YPmod_ref <- lme(runoff_ratio_anom ~ defol_mean, random = ~1 | year,
+                  data = ref_dischargePrecip, method = "ML")
 ref_dischargePrecip$YPmod_ref<- predict(YPmod_ref) 
 summary(YPmod_ref)
 
@@ -544,15 +535,9 @@ RunoffRatio_Ref <- ggplot(ref_dischargePrecip) +
   theme(legend.position="none")
 
 ## FIG3b: Yield Anomaly ~ Defoliation and Precip Anomaly ~ Defoliation
-Ymod_ref <- lmer(yield_anom ~ defol_mean + (1 | year),
-                 data = ref_dischargePrecip, 
-                 control = lmerControl(optimizer ="Nelder_Mead"))
-
-Ymod_ref2 <- lmer(yield_anom ~ defol_mean + (defol_mean | year),
-                  data = ref_dischargePrecip, 
-                  control = lmerControl(optimizer ="Nelder_Mead"))
-anova(Ymod_ref, Ymod_all2)
-ref_dischargePrecip$Ymod_ref<- predict(Ymod_ref2)
+Ymod_ref <- lme(yield_anom ~ defol_mean, random = ~1 | year,
+                 data = ref_dischargePrecip, method = "ML")
+ref_dischargePrecip$Ymod_ref<- predict(Ymod_ref)
 
 # Plot water yield anomalies ~ defoliation, w/ year random intercept
 ref_yieldanom <- ggplot(ref_dischargePrecip) +
@@ -565,14 +550,10 @@ ref_yieldanom <- ggplot(ref_dischargePrecip) +
   theme(legend.position="none")
 
 #Precip Anomaly Model
-Precipmod_ref <- lmer(precip_anom ~ defol_mean + (1 | year),
-                      data = ref_dischargePrecip)
-
-Precipmod_ref2 <- lmer(precip_anom ~ defol_mean + (defol_mean | year),
-                      data = ref_dischargePrecip)
-anova(Precipmod_ref, Precipmod_ref2)
-summary(Precipmod_ref2)
-ref_dischargePrecip$Precipmod_ref <- predict(Precipmod_ref2) 
+Precipmod_ref <- lme(precip_anom ~ defol_mean, random = ~1 | year,
+                     data = ref_dischargePrecip, method = "ML")
+summary(Precipmod_ref)
+ref_dischargePrecip$Precipmod_ref <- predict(Precipmod_ref) 
 
 ref_precipanom <- ggplot(ref_dischargePrecip) +
   geom_point(aes(x = defol_mean, y = precip_anom, color = as.factor(year))) +
@@ -583,19 +564,17 @@ ref_precipanom <- ggplot(ref_dischargePrecip) +
   theme(legend.position="none")
 
 RRYieldPrecip_leg_ref <- cowplot::get_legend(ref_yieldanom + theme(legend.position="bottom"))
-RRYieldPrecip_plots_ref <- cowplot::plot_grid(RunoffRatio_Ref, ref_yieldanom, ref_precipanom, labels = c("A", "B", "C"), nrow = 1)
+RRYieldPrecip_plots_ref <- cowplot::plot_grid(RunoffRatio_Ref, ref_yieldanom, ref_precipanom, labels = c("D", "E", "F"), nrow = 1)
 #png("figures/Fig4_REFRRanoms.png", width = 6000, height = 2500, res = 600)
 cowplot::plot_grid(RRYieldPrecip_plots_ref, RRYieldPrecip_leg_ref, 
                    ncol = 1, rel_heights = c(1.1, 0.2))
 #dev.off()
 
-# 
-# RunoffRatio_leg <- cowplot::get_legend(RunoffRatio_All + theme(legend.position="bottom"))
-# RunoffRatio_Plot <- cowplot::plot_grid(RunoffRatio_All, RunoffRatio_Ref, labels = c("A", "B"))
-# RunoffRatio_Plot_Leg <- cowplot::plot_grid(RunoffRatio_Plot, RunoffRatio_leg, ncol = 1, rel_heights = c(1.1, 0.2))
-# #png("figures/Fig3_v2.png", width = 5000, height = 2500, res = 600)
-# RunoffRatio_Plot_Leg
-# #dev.off()
+#png("figures/Fig3_ALLanoms_300dpi.png", width = 3000, height = 2250, res = 300)
+cowplot::plot_grid(RRYieldPrecip_plots,
+                   RRYieldPrecip_plots_ref, RRYieldPrecip_leg_ref, 
+                   ncol = 1, rel_heights = c(1.1, 1.1, 0.2))
+#dev.off()
 
 # SUPP: Boxplot of RR anomalies and each year of defoliation
 RunoffRatio_boxplot <- ggplot(data = dischargePrecip, 
@@ -622,21 +601,48 @@ RunoffRatio_boxplot
 RRAnoms_YReffects <- data.frame(data = c(rep("All", 3),rep("Ref Only", 3)),
                            response = rep("RR Anom",6),
                            year = rep(2015:2017,2),
-                           intercept = signif(c(coef(YPmod_all)$year[,1],
-                                               coef(YPmod_ref)$year[,1]),2),
-                           std_err_intercept = signif(c(rep(sqrt(diag(vcov(YPmod_all)))[1],3), 
-                                             rep(sqrt(diag(vcov(YPmod_ref)))[1],3)),2),
-                           slope = signif(c(coef(YPmod_all)$year[,2],
-                                           coef(YPmod_ref)$year[,2]),2), 
+                           intercept = signif(c(coef(YPmod_all)[,1],
+                                               coef(YPmod_ref)[,1]),2),
+                           std_err_intercept = signif(c(rep(intervals(YPmod_all)$sigma[2],3),
+                                                      rep(intervals(YPmod_ref)$sigma[2],3)),2),
+                           slope = signif(c(coef(YPmod_all)[,2],
+                                           coef(YPmod_ref)[,2]),2), 
                            std_err_slope = signif(c(rep(sqrt(diag(vcov(YPmod_all)))[2],3), 
                                                    rep(sqrt(diag(vcov(YPmod_ref)))[2],3)),2))
-#write.csv(RRAnoms_YReffects, file = "figures/year_effects_inteceptmodel_v2.csv")
+
+YAnoms_YReffects <- data.frame(data = c(rep("All", 3),rep("Ref Only", 3)),
+                                response = rep("Yield Anom",6),
+                                year = rep(2015:2017,2),
+                                intercept = signif(c(coef(Ymod_all)[,1],
+                                                     coef(Ymod_ref)[,1]),2),
+                                std_err_intercept = signif(c(rep(intervals(Ymod_all)$sigma[2],3),
+                                                             rep(intervals(Ymod_ref)$sigma[2],3)),2),
+                                slope = signif(c(coef(Ymod_all)[,2],
+                                                 coef(Ymod_ref)[,2]),2), 
+                                std_err_slope = signif(c(rep(sqrt(diag(vcov(Ymod_all)))[2],3), 
+                                                         rep(sqrt(diag(vcov(Ymod_ref)))[2],3)),2))
+
+PAnoms_YReffects <- data.frame(data = c(rep("All", 3),rep("Ref Only", 3)),
+                                response = rep("Precip Anom",6),
+                                year = rep(2015:2017,2),
+                                intercept = signif(c(coef(Precipmod_all)[,1],
+                                                     coef(Precipmod_ref)[,1]),2),
+                                std_err_intercept = signif(c(rep(intervals(Precipmod_all)$sigma[2],3),
+                                                             rep(intervals(Precipmod_ref)$sigma[2],3)),2),
+                                slope = signif(c(coef(Precipmod_all)[,2],
+                                                 coef(Precipmod_ref)[,2]),2), 
+                                std_err_slope = signif(c(rep(sqrt(diag(vcov(Precipmod_all)))[2],3), 
+                                                         rep(sqrt(diag(vcov(Precipmod_ref)))[2],3)),2))
+
+ALLanoms_YReffects <- dplyr::bind_rows(RRAnoms_YReffects, YAnoms_YReffects, PAnoms_YReffects)
+
+#write.csv(ALLanoms_YReffects, file = "figures/RRanoms_year_effects.csv", row.names = F)
 
 
 # FLOW DURATION CURVE STATISTICS ------------------------------------------
 # Clean up FDC stats by site
 FDC_stats_sites <- dplyr::mutate(FDC_stats_sites, year = datasub) %>%
-  filter(STAID %in% FDC_baselinedepartures$STAID)
+  dplyr::filter(STAID %in% unique(dischargePrecip$STAID))
 
 # Calculate FDC defoliation year departure from baseline stats
 FDC_discharge <- dplyr::filter(FDC_stats_sites, FDC_type == "discharge")
@@ -708,74 +714,63 @@ FDC_data <- tidyr::pivot_wider(flow_diff_defol, names_from = stat_type, values_f
   dplyr::filter(!is.na(flow_50))
 
 # All Gages 50% exceedence (medium probability of flow value) Model
-ALL_FDC50_int <- lmer(flow_50 ~ defol_mean + (1 | year), 
-                      data = FDC_data,
-                      control = lmerControl(optimizer ="Nelder_Mead"))
+ALL_FDC50_int <- lme(flow_50 ~ defol_mean, random = ~1 | year, 
+                      data = FDC_data, method = "ML")
 summary(ALL_FDC50_int)
-FDC_data$flow_50_model <- as.vector(predict(ALL_FDC50_int))
 
-# All Gages 50% exceedence (medium probability of flow value) Model
-ALL_FDC50_sl <- lmer(flow_50 ~ defol_mean + (1 + defol_mean|year), 
-                     data = FDC_data,
-                     control = lmerControl(optimizer ="Nelder_Mead"))
-lme4::ranef(ALL_FDC50_sl)
+ALL_FDC50_sl <- lme(flow_50 ~ defol_mean, random = ~defol_mean | year, 
+                     data = FDC_data, method = "ML")
 summary(ALL_FDC50_sl)
 anova(ALL_FDC50_int, ALL_FDC50_sl)
+
 FDC_data$flow_50_model <- as.vector(predict(ALL_FDC50_sl))
 
-FDC_REFdata <- dplyr::filter(FDC_data, ref_gage == "Ref")
-REF_FDC50_int <- lmer(flow_50 ~ defol_mean + (1 | year), 
-                       data = FDC_REFdata, 
-                      control = lmerControl(optimizer ="Nelder_Mead"))
-summary(REF_FDC50_int)
+# All Gages 50% exceedence (medium probability of flow value) Model
+ranef(ALL_FDC50_sl)
 
-REF_FDC50_sl <- lmer(flow_50 ~ defol_mean + (1 + defol_mean|year), 
-                      data = FDC_REFdata, 
-                      control = lmerControl(optimizer ="Nelder_Mead"))
+FDC_REFdata <- dplyr::filter(FDC_data, ref_gage == "Ref")
+REF_FDC50_int <- lme(flow_50 ~ defol_mean, random = ~1 | year, 
+                       data = FDC_REFdata, method = "ML")
+REF_FDC50_sl <- lme(flow_50 ~ defol_mean, random = ~defol_mean | year, 
+                     data = FDC_REFdata, method = "ML")
+summary(REF_FDC50_int)
 anova(REF_FDC50_int, REF_FDC50_sl)
+
 FDC_REFdata$flow_50_model <- predict(REF_FDC50_sl)
 
 # All Gages 25% exceedence (low probability of flow value) Model
-ALL_FDC25_int <- lmer(flow_25 ~ defol_mean + (1 | year), 
-                      data = FDC_data)
-summary(ALL_FDC25_int)
-
-ALL_FDC25_sl <- lmer(flow_25 ~ defol_mean + (1 + defol_mean|year), 
-                      data = FDC_data)
+ALL_FDC25_int <- lme(flow_25 ~ defol_mean, random = ~1 | year, 
+                      data = FDC_data, method = "ML")
+ALL_FDC25_sl <- lme(flow_25 ~ defol_mean, random = ~defol_mean | year, 
+                     data = FDC_data, method = "ML")
 anova(ALL_FDC25_int, ALL_FDC25_sl)
 
 FDC_data$flow_25_model <- predict(ALL_FDC25_sl)
 
 # Reference gages 25% exceedence (low probability of flow value) Model
-REF_FDC25_int <- lmer(flow_25 ~ defol_mean + (1 | year), 
-                      data = FDC_REFdata)
-summary(REF_FDC25_int)
-
-REF_FDC25_sl <- lmer(flow_25 ~ defol_mean + (1 + defol_mean|year), 
-                      data = FDC_REFdata)
+REF_FDC25_int <- lme(flow_25 ~ defol_mean, random = ~1 | year, 
+                      data = FDC_REFdata, method = "ML")
+REF_FDC25_sl <- lme(flow_25 ~ defol_mean, random = ~defol_mean | year, 
+                     data = FDC_REFdata, method = "ML")
 anova(REF_FDC25_int, REF_FDC25_sl)
+
 FDC_REFdata$flow_25_model <- predict(REF_FDC25_sl)
 
 # All Gages 75% exceedence (high probability of flow value) Model
-ALL_FDC75_int <- lmer(flow_75 ~ defol_mean + (1 | year), 
-                      data = FDC_data)
-summary(ALL_FDC25_int)
+ALL_FDC75_int <- lme(flow_75 ~ defol_mean, random = ~1 | year, 
+                      data = FDC_data, method = "ML")
 
-ALL_FDC75_sl <- lmer(flow_75 ~ defol_mean + (1 + defol_mean|year), 
-                      data = FDC_data)
+ALL_FDC75_sl <- lme(flow_75 ~ defol_mean, random = ~defol_mean | year, 
+                     data = FDC_data, method = "ML")
 anova(ALL_FDC75_int, ALL_FDC75_sl)
 
 FDC_data$flow_75_model <- predict(ALL_FDC75_int)
 
 # Reference Gages 75% exceedence (high probability of flow value) Model
-REF_FDC75_int <- lmer(flow_75 ~ defol_mean + (1 | year), 
-                      data = FDC_REFdata)
-summary(REF_FDC75_int)
+REF_FDC75_int <- lme(flow_75 ~ defol_mean, random = ~1 | year, 
+                      data = FDC_REFdata, method = "ML")
 
-REF_FDC75_sl <- lmer(flow_75 ~ defol_mean + (1 + defol_mean|year), 
-                      data = FDC_REFdata)
-anova(REF_FDC75_int, REF_FDC75_sl)
-FDC_REFdata$flow_75_model <- predict(REF_FDC75_sl)
+FDC_REFdata$flow_75_model <- predict(REF_FDC75_int)
 
 #### Plot defoliation ~ FDC percentile changes
 #FDC_data <- mutate(FDC_data, Year = year)
