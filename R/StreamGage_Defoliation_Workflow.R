@@ -778,7 +778,7 @@ FDC_REFdata$flow_75_model <- predict(REF_FDC75_int)
 all_plot_25 <- ggplot(FDC_data) + 
   geom_point(aes( x = defol_mean, y = flow_25, color = year)) +
   geom_line(aes(x = defol_mean, y = flow_25_model, color = year), linetype = "solid")+
-  scale_color_manual(values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4"))+
+  scale_color_manual(values = c("#B8DE29FF","#20A387FF", "#440154FF"))+
   ylim(c(-100,100)) +
   labs(x = "Defoliation metric", 
        y = expression(paste("Percent ", Delta, 
@@ -790,7 +790,7 @@ all_plot_25 <- ggplot(FDC_data) +
 all_plot_50 <- ggplot(FDC_data)  + 
   geom_point(aes( x = defol_mean, y = flow_50, color = year)) +
   geom_line(aes(x = defol_mean, y = flow_50_model, color = year), linetype = "solid")+
-  scale_color_manual(values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4"))+
+  scale_color_manual(values = c("#B8DE29FF","#20A387FF", "#440154FF"))+
   ylim(c(-100,100)) +
   labs(x = "Defoliation metric", 
        y = expression(paste("Percent ", Delta, 
@@ -802,7 +802,7 @@ all_plot_50 <- ggplot(FDC_data)  +
 all_plot_75 <- ggplot(FDC_data) + 
   geom_point(aes( x = defol_mean, y = flow_75, color = year)) +
   geom_line(aes(x = defol_mean, y = flow_75_model, color = year), linetype = "dashed")+
-  scale_color_manual(values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4"))+
+  scale_color_manual(values = c("#B8DE29FF","#20A387FF", "#440154FF"))+
   ylim(c(-100,100)) +
   labs(x = "Defoliation metric", 
        y = expression(paste("Percent ", Delta, 
@@ -811,7 +811,7 @@ all_plot_75 <- ggplot(FDC_data) +
   theme(legend.position="none")
 
 all_FDC_leg <- cowplot::get_legend(all_plot_75 + theme(legend.position="bottom"))
-top_row <- cowplot::plot_grid(all_plot_25, all_plot_50, all_plot_75, labels = c("A", "B", "C"), nrow = 1)
+FDC_all <- cowplot::plot_grid(all_plot_25, all_plot_50, all_plot_75, labels = c("A", "B", "C"), nrow = 1)
 
 #png("figures/FIG4.png", width = 6000, height = 2500, res = 600)
 cowplot::plot_grid(top_row, all_FDC_leg, ncol = 1, rel_heights = c(1.1, 0.2))
@@ -821,7 +821,7 @@ cowplot::plot_grid(top_row, all_FDC_leg, ncol = 1, rel_heights = c(1.1, 0.2))
 ref_plot_25 <- ggplot(FDC_REFdata) + 
   geom_point(aes( x = defol_mean, y = flow_25, color = year)) +
   geom_line(aes(x = defol_mean, y = flow_25_model, color = year))+
-  scale_color_manual(values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4", "mediumpurple4"))+
+  scale_color_manual(values = c("#B8DE29FF","#20A387FF", "#440154FF"))+
   #  facet_wrap(~year) +
   ylim(c(-100,100)) +
   labs(x = "Defoliation metric", 
@@ -834,7 +834,7 @@ ref_plot_25 <- ggplot(FDC_REFdata) +
 ref_plot_50 <- ggplot(FDC_REFdata)  + 
   geom_point(aes( x = defol_mean, y = flow_50, color = year)) +
   geom_line(aes(x = defol_mean, y = flow_50_model, color = year), linetype = "solid")+
-  scale_color_manual(values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4"))+
+  scale_color_manual(values = c("#B8DE29FF","#20A387FF", "#440154FF"))+
   ylim(c(-100,100)) +
   labs(x = "Defoliation metric", 
        y = expression(paste("Percent ", Delta, 
@@ -846,7 +846,7 @@ ref_plot_50 <- ggplot(FDC_REFdata)  +
 ref_plot_75 <- ggplot(FDC_REFdata) + 
   geom_point(aes( x = defol_mean, y = flow_75, color = year)) +
   geom_line(aes(x = defol_mean, y = flow_75_model, color = year), linetype = "solid")+
-  scale_color_manual(values = c("chartreuse4", "darkgoldenrod1", "lightsalmon4"))+
+  scale_color_manual(values = c("#B8DE29FF","#20A387FF", "#440154FF"))+
   ylim(c(-100,100)) +
   labs(x = "Defoliation metric", 
        y = expression(paste("Percent ", Delta, 
@@ -855,49 +855,53 @@ ref_plot_75 <- ggplot(FDC_REFdata) +
   theme(legend.position="none")
 
 ref_FDC_leg <- cowplot::get_legend(ref_plot_75 + theme(legend.position="bottom"))
-top_row <- cowplot::plot_grid(ref_plot_25, ref_plot_50, ref_plot_75, labels = c("A", "B", "C"), nrow = 1)
+top_row <- cowplot::plot_grid(ref_plot_25, ref_plot_50, ref_plot_75, labels = c("D", "E", "F"), nrow = 1)
 
-#png("figures/SUPP_REFFDC.png", width = 6000, height = 2500, res = 600)
-cowplot::plot_grid(top_row, ref_FDC_leg, ncol = 1, rel_heights = c(1.1, 0.2))
+#png("figures/Fig4_v2.png", width = 6000, height = 4500, res = 600)
+cowplot::plot_grid(FDC_all, top_row, ref_FDC_leg, ncol = 1, rel_heights = c(1.1, 1.1, 0.2))
 #dev.off()
 
 # FDC Statistics Tables ---------------------------------------------------
 #Bind LMM outputs in data.frame 
 FDC_75_stats <- data.frame(data = rep(c(rep("All",3),rep("Ref Only",3))),
                            year = rep(2015:2017,2),
-                           intercept = signif(c(coef(ALL_FDC75_int)$year[,1], 
-                                               coef(REF_FDC75_int)$year[,1]),2), 
-                           std_err_intercept = signif(c(rep(sqrt(diag(vcov(ALL_FDC75_int)))[1],3), 
-                                                       rep(sqrt(diag(vcov(REF_FDC75_int)))[1],3)),2),
-                           slope = signif(c(coef(ALL_FDC75_int)$year[,2],
-                                         coef(REF_FDC75_int)$year[,2]),2), 
-                           std_err_slope = signif(c(rep(sqrt(diag(vcov(ALL_FDC75_int)))[2],3),
-                                   rep(sqrt(diag(vcov(REF_FDC75_int)))[2],3)),2),
-                           stat_type = rep("75tile",6))
+                           intercept = signif(c(coef(ALL_FDC75_int)[,1],
+                                                coef(REF_FDC75_int)[,1]),2),
+                           std_err_intercept = signif(c(rep(sqrt(diag(vcov(ALL_FDC75_int)))[1],3),
+                                                        rep(sqrt(diag(vcov(ALL_FDC75_int)))[1],3)),2),
+                           slope = signif(c(coef(ALL_FDC75_int)[,2],
+                                            coef(REF_FDC75_int)[,2]),2), 
+                           std_err_slope = signif(c(rep(sqrt(diag(vcov(ALL_FDC75_int)))[2],3), 
+                                                    rep(sqrt(diag(vcov(REF_FDC75_int)))[2],3)),2),
+                           stat_type = rep("75tile",6),
+                           model_type = rep("int",6))
+
 FDC_50_stats <- data.frame(data = rep(c(rep("All",3),rep("Ref Only",3))),
                            year = rep(2015:2017,2),
-                           intercept = signif(c(coef(ALL_FDC50_int)$year[,1], 
-                                               coef(REF_FDC50_int)$year[,1]),2), 
-                           std_err_intercept = signif(c(rep(sqrt(diag(vcov(ALL_FDC50_int)))[1],3), 
-                                                       rep(sqrt(diag(vcov(REF_FDC50_int)))[1],3)),2),
-                           slope = signif(c(coef(ALL_FDC50_int)$year[,2],
-                                           coef(REF_FDC50_int)$year[,2]),2), 
-                           std_err_slope = signif(c(rep(sqrt(diag(vcov(ALL_FDC50_int)))[2],3),
-                                                   rep(sqrt(diag(vcov(REF_FDC50_int)))[2],3)),2),
-                           stat_type = rep("50tile",6))
+                           intercept = signif(c(coef(ALL_FDC50_sl)[,1], 
+                                               coef(REF_FDC50_sl)[,1]),2), 
+                           std_err_intercept = signif(c(rep(sqrt(diag(vcov(ALL_FDC50_sl)))[1],3),
+                                                       rep(sqrt(diag(vcov(REF_FDC50_sl)))[1],3)),2),
+                           slope = signif(c(coef(ALL_FDC50_sl)[,2],
+                                           coef(REF_FDC50_sl)[,2]),2), 
+                           std_err_slope = signif(c(rep(sqrt(diag(vcov(ALL_FDC50_sl)))[2],3),
+                                                   rep(sqrt(diag(vcov(REF_FDC50_sl)))[2],3)),2),
+                           stat_type = rep("50tile",6),
+                           model_type = rep("slope & int",6))
 FDC_25_stats <- data.frame(data = rep(c(rep("All",3),rep("Ref Only",3))),
                            year = rep(2015:2017,2),
-                           intercept = signif(c(coef(ALL_FDC25_int)$year[,1], 
-                                               coef(REF_FDC25_int)$year[,1]),2), 
-                           std_err_intercept = signif(c(rep(sqrt(diag(vcov(ALL_FDC25_int)))[1],3), 
-                                                       rep(sqrt(diag(vcov(REF_FDC25_int)))[1],3)),2),
-                           slope = signif(c(coef(ALL_FDC25_int)$year[,2],
-                                           coef(REF_FDC25_int)$year[,2]),2), 
-                           std_err_slope = signif(c(rep(sqrt(diag(vcov(ALL_FDC25_int)))[2],3),
-                                                   rep(sqrt(diag(vcov(REF_FDC25_int)))[2],3)),2),
-                           stat_type = rep("25tile",6))
-FDC_lm_stats <- rbind(FDC_25_stats, FDC_50_stats) #drop 75 stats here because the model is not well supported
-#write.csv(FDC_lm_stats, file = "figures/FDC_lm_stats_int.csv")
+                           intercept = signif(c(coef(ALL_FDC25_sl)[,1], 
+                                                coef(REF_FDC25_sl)[,1]),2), 
+                           std_err_intercept = signif(c(rep(sqrt(diag(vcov(ALL_FDC25_sl)))[1],3),
+                                                       rep(sqrt(diag(vcov(REF_FDC25_sl)))[1],3)),2),
+                           slope = signif(c(coef(ALL_FDC25_sl)[,2],
+                                            coef(REF_FDC25_sl)[,2]),2), 
+                           std_err_slope = signif(c(rep(sqrt(diag(vcov(ALL_FDC25_sl)))[2],3),
+                                                    rep(sqrt(diag(vcov(REF_FDC25_sl)))[2],3)),2),
+                           stat_type = rep("25tile",6),
+                           model_type = rep("slope & int",6))
+FDC_lm_stats <- bind_rows(FDC_25_stats, FDC_50_stats, FDC_75_stats) 
+#write.csv(FDC_lm_stats, file = "figures/FDC_lm_stats_int_v2.csv", row.names=F)
 
 # Finding number of gages with different baseline period durations
 gages_uniq <- unique(dischargePrecip$STAID)
