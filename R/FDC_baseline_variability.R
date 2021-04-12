@@ -227,9 +227,21 @@ FDC_baselinedefol_staid <- bind_rows(FDC_baselinesummary_STAID,
                       values_to="SD_departure") %>%
   dplyr::arrange(STAID) 
 
+# For table
+tmp <- tidyr::pivot_wider(FDC_baselinedefol_staid, names_from = percentile,
+                          values_from = SD_departure)
+
+tmp2 <- tidyr::pivot_wider(tmp, names_from = data, 
+                           values_from = flow_25:flow_75)
+colnames(tmp2) <- c("STAID","FLOW25SD_BASE","FLOW25SD_DEFOL",
+                    "FLOW50SD_BASE","FLOW50SD_DEFOL",
+                    "FLOW75SD_BASE","FLOW75SD_DEFOL")
+write.csv(tmp2, "../RMSE_images/SUPP_FDCgageSD.csv")
+
 # New facet label names
 FDC_labs <- c("25% Exceedance", "50% Exceedance","75% Exceedance")
 names(FDC_labs) <- c("flow_25", "flow_50", "flow_75")
+
 
 #png("figures/FIGS_GageFDCBaselineDep.png", width = 5000, height = 3500, res = 600)
 ggplot(FDC_baselinedefol_staid) +
